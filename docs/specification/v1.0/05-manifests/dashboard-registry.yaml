@@ -1,0 +1,35 @@
+version: 1
+dashboards:
+  - uid: nydux-svc-overview
+    title: "NYDUX / Service Overview"
+    file: observability/grafana/service-overview.json
+    status: complete
+  - uid: nydux-ingest
+    title: "NYDUX / Ingest Pipeline"
+    panels: ["ingest e2e p95", "late-row ratio", "sink batch p95", "spool bytes per cluster"]
+    status: to-generate-from-panels
+  - uid: nydux-kes
+    title: "NYDUX / Compiler Intelligence"
+    panels: ["first-score freshness p95", "KES status mix", "analysis duration by mode", "cache hit ratio", "MEASUREMENT_ONLY ratio"]
+    status: to-generate-from-panels
+  - uid: nydux-cri
+    title: "NYDUX / Regressions and Gates"
+    panels: ["fleet CRI per tenant", "gate pass/fail rate", "bench-runner variance rejects"]
+    status: to-generate-from-panels
+  - uid: nydux-finance
+    title: "NYDUX / Finance and Savings"
+    panels: ["attribution completeness", "parked slices", "savings dual-report per period", "reanchor events"]
+    status: to-generate-from-panels
+  - uid: nydux-audit
+    title: "NYDUX / Audit Chain"
+    panels: ["per-tenant seq watermark", "gaps total", "append p95", "verify duration"]
+    status: to-generate-from-panels
+  - uid: nydux-agents
+    title: "NYDUX / Agents"
+    panels: ["tasks by kind/state", "tokens per task", "judge fail ratio", "schema rejects"]
+    status: to-generate-from-panels
+generation_rule: >
+  Panel lists above are the required panel set per dashboard. JSON is generated
+  by tools/genmanifests dashboard-gen using service-overview.json as the layout
+  template (same grid and datasource variable). CI check at GA gate: a uid in
+  this registry without a JSON file fails the build.

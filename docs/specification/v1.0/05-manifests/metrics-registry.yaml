@@ -1,0 +1,48 @@
+# Canonical metric names (ECD-002 §6 vocabularies). New metric ⇒ PR touching this file.
+version: 1
+conventions: {prefix: nydux_, labels_always: [service], tenancy_label: tenant (aggregated views only, never per-request cardinality)}
+metrics:
+  # uniform (interceptor-emitted, every service)
+  - {name: nydux_grpc_requests_total,           type: counter,   labels: [service, method, code]}
+  - {name: nydux_grpc_duration_seconds,         type: histogram, labels: [service, method]}
+  - {name: nydux_api_requests_total,            type: counter,   labels: [route, code]}
+  - {name: nydux_dependency_duration_seconds,   type: histogram, labels: [service, target]}
+  - {name: nydux_breaker_open,                  type: gauge,     labels: [service, target]}
+  - {name: nydux_bus_consumer_lag_seconds,      type: gauge,     labels: [service, topic, group, class]}
+  - {name: nydux_bus_dlq_depth,                 type: gauge,     labels: [topic, class]}
+  - {name: nydux_bus_unknown_schema_total,      type: counter,   labels: [topic]}
+  - {name: nydux_outbox_unpublished_rows,       type: gauge,     labels: [service]}
+  # ingest
+  - {name: nydux_ingest_batches_total,          type: counter,   labels: [sink]}
+  - {name: nydux_ingest_failures_total,         type: counter,   labels: [sink, reason]}
+  - {name: nydux_ingest_e2e_seconds,            type: histogram, labels: [sink]}
+  - {name: nydux_ingest_late_rows_ratio,        type: gauge,     labels: [sink]}
+  # compiler / KES
+  - {name: nydux_kes_records_total,             type: counter,   labels: [status]}
+  - {name: nydux_kes_first_score_latency_seconds, type: histogram, labels: []}
+  - {name: nydux_kes_analysis_duration_seconds, type: histogram, labels: [mode]}   # static|ncu
+  - {name: nydux_kes_cache_hit_ratio,           type: gauge,     labels: []}
+  - {name: nydux_cri_value,                     type: gauge,     labels: [tenant]}
+  - {name: nydux_cri_gate_evaluations_total,    type: counter,   labels: [result]}  # pass|fail
+  # data plane
+  - {name: nydux_collector_clock_skew_seconds,  type: gauge,     labels: [cluster, node]}
+  - {name: nydux_gateway_spool_bytes,           type: gauge,     labels: [cluster]}
+  - {name: nydux_gateway_spool_capacity_bytes,  type: gauge,     labels: [cluster]}
+  - {name: nydux_gateway_egress_filter_reject_total, type: counter, labels: [cluster, field]}
+  # graph / finance / savings / twin
+  - {name: nydux_graph_named_query_seconds,     type: histogram, labels: [query]}
+  - {name: nydux_fin_attribution_completeness,  type: gauge,     labels: [tenant]}
+  - {name: nydux_fin_parked_slices_total,       type: counter,   labels: [reason]}
+  - {name: nydux_sav_replay_bundle_exports_total, type: counter, labels: []}
+  - {name: nydux_twin_mape_rolling,             type: gauge,     labels: [model_version]}
+  - {name: nydux_twin_low_support_ratio,        type: gauge,     labels: []}
+  # policy / audit
+  - {name: nydux_policy_decision_seconds,       type: histogram, labels: [enforcement]}
+  - {name: nydux_policy_blocks_total,           type: counter,   labels: [policy]}
+  - {name: nydux_audit_chain_gaps_total,        type: counter,   labels: [tenant]}
+  - {name: nydux_audit_append_seconds,          type: histogram, labels: []}
+  # agents
+  - {name: nydux_agent_tasks_total,             type: counter,   labels: [kind, state]}
+  - {name: nydux_agent_tokens_total,            type: counter,   labels: [kind, direction]}
+  - {name: nydux_agent_tool_schema_reject_total, type: counter,  labels: [tool]}
+  - {name: nydux_agent_judge_fail_total,        type: counter,   labels: [kind]}

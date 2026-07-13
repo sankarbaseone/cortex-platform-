@@ -1,0 +1,673 @@
+# artifacts/api/openapi.yaml — NYDUX Public REST API v1 (complete)
+# Contract per RFC-006 (frozen). Generated types feed sdk-python, libs/ts/api-client.
+openapi: 3.1.0
+info:
+  title: NYDUX API
+  version: 1.0.0
+  description: >
+    Compiler-aware AI infrastructure intelligence API. All endpoints tenant-scoped
+    via OIDC bearer token or API key (CI scope only). Errors are RFC 9457
+    application/problem+json. Cursor pagination only. RSQL-subset filtering on
+    whitelisted fields per endpoint.
+servers:
+  - url: https://api.nydux.ai/v1
+security:
+  - bearerAuth: []
+tags:
+  - {name: kernels}
+  - {name: regressions}
+  - {name: toolchains}
+  - {name: recommendations}
+  - {name: simulations}
+  - {name: capacity}
+  - {name: finance}
+  - {name: infra}
+  - {name: policies}
+  - {name: audit}
+  - {name: agents}
+  - {name: admin}
+  - {name: jobs}
+
+paths:
+  /kernels:
+    get:
+      operationId: listKernels
+      tags: [kernels]
+      parameters:
+        - {$ref: '#/components/parameters/filter'}   # fields: kes, arch, status, family_hash
+        - {$ref: '#/components/parameters/sort'}     # kes, last_seen
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/cursor'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/KernelList'}}}}
+        default: {$ref: '#/components/responses/Problem'}
+  /kernels/{hash}:
+    get:
+      operationId: getKernel
+      tags: [kernels]
+      parameters: [{$ref: '#/components/parameters/kernelHash'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Kernel'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /kernels/{hash}/score:
+    get:
+      operationId: getKernelScore
+      tags: [kernels]
+      parameters: [{$ref: '#/components/parameters/kernelHash'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/KernelScore'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /kernels/{hash}/ir/{stage}:
+    get:
+      operationId: getKernelIr
+      tags: [kernels]
+      description: In-tenant/self-hosted deployments only. SaaS returns 404 by design (RFC-003 D.9).
+      parameters:
+        - {$ref: '#/components/parameters/kernelHash'}
+        - {name: stage, in: path, required: true, schema: {type: string, enum: [ttir, ttgir, llvm, ptx, sass]}}
+      responses:
+        '200': {description: OK, content: {text/plain: {schema: {type: string}}}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /kernels/{hash}/recommendations:
+    get:
+      operationId: listKernelRecommendations
+      tags: [kernels, recommendations]
+      parameters: [{$ref: '#/components/parameters/kernelHash'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/RecommendationList'}}}}
+
+  /regressions:
+    get:
+      operationId: listRegressions
+      tags: [regressions]
+      parameters:
+        - {$ref: '#/components/parameters/filter'}   # fields: family_hash, from_fp, to_fp, shape_class
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/cursor'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/RegressionList'}}}}
+  /regressions/checks:
+    post:
+      operationId: checkRegressions
+      tags: [regressions]
+      description: CI gate. API-key scope ci:regressions permitted. Sync ≤25s else 202→job.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/RegressionCheckRequest'}}}
+      responses:
+        '200': {description: Completed, content: {application/json: {schema: {$ref: '#/components/schemas/RegressionCheckResult'}}}}
+        '202': {description: Async, content: {application/json: {schema: {$ref: '#/components/schemas/JobRef'}}}}
+        '422': {$ref: '#/components/responses/Problem'}
+
+  /toolchains:
+    get:
+      operationId: listToolchains
+      tags: [toolchains]
+      parameters: [{$ref: '#/components/parameters/limit'}, {$ref: '#/components/parameters/cursor'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ToolchainList'}}}}
+    post:
+      operationId: registerToolchain
+      tags: [toolchains]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ToolchainCreate'}}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Toolchain'}}}}
+        '409': {$ref: '#/components/responses/Problem'}
+  /toolchains/{id}/approval:
+    put:
+      operationId: setToolchainApproval
+      tags: [toolchains, policies]
+      description: Governance action. Requires role approver+; audited; emits governance.toolchain.* event.
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [approval], properties: {approval: {type: string, enum: [approved, revoked]}, rationale: {type: string, minLength: 4}}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Toolchain'}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+
+  /recommendations:
+    get:
+      operationId: listRecommendations
+      tags: [recommendations]
+      parameters:
+        - {$ref: '#/components/parameters/filter'}   # fields: state, pattern_id, risk, confidence
+        - {$ref: '#/components/parameters/sort'}     # score(default desc), created_at
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/cursor'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/RecommendationList'}}}}
+  /recommendations/{id}:
+    get:
+      operationId: getRecommendation
+      tags: [recommendations]
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Recommendation'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /recommendations/{id}/approve:
+    post:
+      operationId: approveRecommendation
+      tags: [recommendations]
+      parameters: [{$ref: '#/components/parameters/uuidId'}, {$ref: '#/components/parameters/idempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Decide'}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DecideResult'}}}}
+        '409': {$ref: '#/components/responses/Problem'}   # illegal state transition
+        '403': {$ref: '#/components/responses/Problem'}   # policy_blocked / not approver / author==approver
+  /recommendations/{id}/reject:
+    post:
+      operationId: rejectRecommendation
+      tags: [recommendations]
+      parameters: [{$ref: '#/components/parameters/uuidId'}, {$ref: '#/components/parameters/idempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Decide'}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Recommendation'}}}}
+  /recommendations/{id}/apply:
+    post:
+      operationId: applyRecommendation
+      tags: [recommendations]
+      parameters: [{$ref: '#/components/parameters/uuidId'}, {$ref: '#/components/parameters/idempotencyKey'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [approval_token], properties: {approval_token: {type: string, minLength: 16}}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {type: object, required: [change_ref, rollback_token], properties: {change_ref: {type: string}, rollback_token: {type: string}}}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+
+  /simulations:
+    post:
+      operationId: runSimulation
+      tags: [simulations]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ScenarioSet'}}}}
+      responses:
+        '202': {description: Job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobRef'}}}}
+  /simulations/{id}:
+    get:
+      operationId: getSimulation
+      tags: [simulations]
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SimulationResult'}}}}
+
+  /capacity/plans:
+    post:
+      operationId: createCapacityPlan
+      tags: [capacity]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CapacityPlanRequest'}}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/CapacityPlan'}}}}
+    get:
+      operationId: listCapacityPlans
+      tags: [capacity]
+      parameters: [{$ref: '#/components/parameters/limit'}, {$ref: '#/components/parameters/cursor'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/CapacityPlanList'}}}}
+
+  /finance/attribution:
+    get:
+      operationId: getAttribution
+      tags: [finance]
+      parameters:
+        - {name: dim, in: query, required: true, schema: {type: string, enum: [team, model, workload, kernel, token]}}
+        - {name: from, in: query, required: true, schema: {type: string, format: date-time}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date-time}}
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/cursor'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Attribution'}}}}
+  /finance/savings:
+    get:
+      operationId: getSavings
+      tags: [finance]
+      parameters:
+        - {name: period, in: query, required: false, schema: {type: string, pattern: '^[0-9]{4}-[0-9]{2}$'}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SavingsList'}}}}
+  /finance/baselines:
+    post:
+      operationId: createBaseline
+      tags: [finance]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BaselineCreate'}}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Baseline'}}}}
+    get:
+      operationId: listBaselines
+      tags: [finance]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/Baseline'}}}}}}}
+  /finance/baselines/{id}/reanchor:
+    post:
+      operationId: reanchorBaseline
+      tags: [finance]
+      description: Dual co-sign required (customer + NYDUX). Audited. Single-flight.
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [reason, customer_signature], properties: {reason: {type: string, minLength: 8}, customer_signature: {type: string}}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Baseline'}}}}
+        '423': {$ref: '#/components/responses/Problem'}   # locked: reanchor in flight
+
+  /clusters:
+    get: {operationId: listClusters, tags: [infra], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ClusterList'}}}}}}
+    post:
+      operationId: registerCluster
+      tags: [infra, admin]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [display_name], properties: {display_name: {type: string}, provider: {type: string}}}}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/ClusterBootstrap'}}}}
+  /devices:
+    get:
+      operationId: listDevices
+      tags: [infra]
+      parameters: [{name: cluster_id, in: query, required: false, schema: {type: string, format: uuid}}, {$ref: '#/components/parameters/limit'}, {$ref: '#/components/parameters/cursor'}]
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DeviceList'}}}}
+  /rates:
+    get: {operationId: listRates, tags: [infra, finance], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/RateList'}}}}}}
+
+  /policies:
+    get: {operationId: listPolicies, tags: [policies], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/PolicyList'}}}}}}
+    post:
+      operationId: createPolicy
+      tags: [policies]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PolicyCreate'}}}}
+      responses: {'201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Policy'}}}}}
+  /policies/{id}:
+    put:
+      operationId: updatePolicy
+      tags: [policies]
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PolicyCreate'}}}}
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Policy'}}}}}
+    delete:
+      operationId: deletePolicy
+      tags: [policies]
+      parameters: [{$ref: '#/components/parameters/uuidId'}]
+      responses: {'204': {description: Deleted}}
+  /policies/{id}/decisions:
+    get:
+      operationId: listPolicyDecisions
+      tags: [policies]
+      parameters: [{$ref: '#/components/parameters/uuidId'}, {$ref: '#/components/parameters/limit'}, {$ref: '#/components/parameters/cursor'}]
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DecisionList'}}}}}
+
+  /audit/entries:
+    get:
+      operationId: listAuditEntries
+      tags: [audit]
+      description: Auditor role required.
+      parameters:
+        - {name: from_seq, in: query, schema: {type: integer, format: int64, minimum: 0}}
+        - {$ref: '#/components/parameters/limit'}
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AuditEntryList'}}}}}
+  /audit/verify:
+    post:
+      operationId: verifyAuditChain
+      tags: [audit]
+      requestBody: {required: false, content: {application/json: {schema: {type: object, properties: {from_seq: {type: integer, format: int64}}}}}}
+      responses: {'200': {description: OK, content: {application/json: {schema: {type: object, required: [valid, verified_through_seq], properties: {valid: {type: boolean}, verified_through_seq: {type: integer, format: int64}}}}}}}
+
+  /agents/tasks:
+    get: {operationId: listAgentTasks, tags: [agents], parameters: [{$ref: '#/components/parameters/limit'}, {$ref: '#/components/parameters/cursor'}], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AgentTaskList'}}}}}}
+  /agents/tasks/{id}:
+    get: {operationId: getAgentTask, tags: [agents], parameters: [{$ref: '#/components/parameters/uuidId'}], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AgentTask'}}}}}}
+
+  /tenants:
+    get: {operationId: getTenant, tags: [admin], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Tenant'}}}}}}
+  /users:
+    get: {operationId: listUsers, tags: [admin], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/UserList'}}}}}}
+    post:
+      operationId: inviteUser
+      tags: [admin]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [email], properties: {email: {type: string, format: email}, role_ids: {type: array, items: {type: string, format: uuid}}}}}}}
+      responses: {'201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/User'}}}}}
+  /roles:
+    get: {operationId: listRoles, tags: [admin], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/RoleList'}}}}}}
+  /apikeys:
+    post:
+      operationId: createApiKey
+      tags: [admin]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [scopes], properties: {scopes: {type: array, items: {type: string, enum: ['ci:regressions']}}, expires_at: {type: string, format: date-time}}}}}}
+      responses:
+        '201':
+          description: Secret shown once.
+          content: {application/json: {schema: {type: object, required: [key_id, secret, prefix], properties: {key_id: {type: string, format: uuid}, secret: {type: string}, prefix: {type: string}}}}}
+    get: {operationId: listApiKeys, tags: [admin], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ApiKeyList'}}}}}}
+  /apikeys/{id}:
+    delete: {operationId: revokeApiKey, tags: [admin], parameters: [{$ref: '#/components/parameters/uuidId'}], responses: {'204': {description: Revoked}}}
+
+  /jobs/{id}:
+    get: {operationId: getJob, tags: [jobs], parameters: [{$ref: '#/components/parameters/uuidId'}], responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Job'}}}}}}
+
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    apiKey: {type: apiKey, in: header, name: X-Nydux-Api-Key}
+  parameters:
+    kernelHash: {name: hash, in: path, required: true, schema: {type: string, pattern: '^[a-f0-9]{64}$'}}
+    uuidId: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    filter: {name: filter, in: query, required: false, schema: {type: string, maxLength: 512}, description: 'RSQL subset over whitelisted fields (api-registry.yaml)'}
+    sort: {name: sort, in: query, required: false, schema: {type: string}}
+    limit: {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+    cursor: {name: cursor, in: query, required: false, schema: {type: string}}
+    idempotencyKey: {name: Idempotency-Key, in: header, required: false, schema: {type: string, maxLength: 128}}
+  responses:
+    Problem:
+      description: RFC 9457 problem
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [type, title, status, trace_id]
+            properties:
+              type: {type: string, format: uri, description: 'https://errors.nydux.ai/<code>'}
+              title: {type: string}
+              status: {type: integer}
+              detail: {type: string}
+              trace_id: {type: string}
+              errors: {type: array, items: {type: object, properties: {field: {type: string}, message: {type: string}}}}
+  schemas:
+    Kernel:
+      type: object
+      required: [kernel_hash, family_hash, arch, status, first_seen, last_seen]
+      properties:
+        kernel_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        family_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+        arch: {type: string}
+        status: {type: string, enum: [SCORED, STATIC_ESTIMATE, MEASUREMENT_ONLY]}
+        score: {$ref: '#/components/schemas/KernelScore'}
+        toolchain_fp: {type: string}
+        pattern_tags: {type: array, items: {type: string}}
+        first_seen: {type: string, format: date-time}
+        last_seen: {type: string, format: date-time}
+    KernelScore:
+      type: object
+      required: [kes, components, kes_model_version, confidence]
+      properties:
+        kes: {type: number, minimum: 0, maximum: 100}
+        components:
+          type: object
+          properties:
+            roof: {type: number}
+            occ: {type: number}
+            stall: {type: number}
+            mem: {type: number}
+            tc: {type: number}
+            mix: {type: number}
+          additionalProperties: false
+        kes_model_version: {type: string}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        profile: {type: string, enum: [training, prefill, decode, hpc]}
+    KernelList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Kernel'}}, next_cursor: {type: string}}}
+    Regression:
+      type: object
+      required: [family_hash, from_fp, to_fp, delta_perf, cri_contrib]
+      properties:
+        family_hash: {type: string}
+        from_fp: {type: string}
+        to_fp: {type: string}
+        delta_perf: {type: number}
+        cri_contrib: {type: number, minimum: 0}
+        mechanism_tags: {type: array, items: {type: string, enum: [loop_unroll, sched, host_cc, spills, other]}}
+        shape_class: {type: string}
+    RegressionList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Regression'}}, next_cursor: {type: string}}}
+    RegressionCheckRequest:
+      type: object
+      required: [from, to, fail_on]
+      properties:
+        from: {$ref: '#/components/schemas/ToolchainRef'}
+        to: {$ref: '#/components/schemas/ToolchainRef'}
+        fail_on: {type: string, pattern: '^CRI>=?[0-9]*\.?[0-9]+$'}
+    RegressionCheckResult:
+      type: object
+      required: [fleet_cri, gate_passed, regressions]
+      properties:
+        fleet_cri: {type: number}
+        gate_passed: {type: boolean}
+        regressions: {type: array, items: {$ref: '#/components/schemas/Regression'}}
+        unbaselined_families: {type: array, items: {type: string}}
+    ToolchainRef:
+      type: object
+      required: [fingerprint]
+      properties:
+        fingerprint: {type: string, pattern: '^[a-f0-9]{64}$'}
+        cuda: {type: string}
+        ptxas: {type: string}
+        triton: {type: string}
+        torch: {type: string}
+        host_cc: {type: string}
+    Toolchain:
+      allOf:
+        - {$ref: '#/components/schemas/ToolchainRef'}
+        - type: object
+          required: [toolchain_id, approval]
+          properties:
+            toolchain_id: {type: string, format: uuid}
+            name: {type: string}
+            approval: {type: string, enum: [unreviewed, approved, revoked]}
+            approved_by: {type: string, format: uuid}
+            approved_at: {type: string, format: date-time}
+    ToolchainCreate:
+      type: object
+      required: [name]
+      properties: {name: {type: string}, cuda: {type: string}, ptxas: {type: string}, triton: {type: string}, torch: {type: string}, host_cc: {type: string}}
+    ToolchainList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Toolchain'}}, next_cursor: {type: string}}}
+    Recommendation:
+      type: object
+      required: [rec_id, kernel_hash, pattern_id, state, confidence, evidence]
+      properties:
+        rec_id: {type: string, format: uuid}
+        kernel_hash: {type: string}
+        pattern_id: {type: string, enum: [unfused_elementwise, missing_flashattn, reg_pressure, noncoalesced, fp32_gemm_tc, smallbatch_gemm, launch_storm, triton_tile, cublas_fallback, comm_overlap_gap, toolchain_upgrade, toolchain_holdback]}
+        gain_p50: {type: number}
+        gain_p90: {type: number}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        effort: {type: string, enum: [trivial, low, medium, high]}
+        risk: {type: number, minimum: 0}
+        state: {type: string, enum: [created, approved, rejected, applied, verified, failed, rolled_back]}
+        evidence:
+          type: object
+          required: [refs]
+          properties:
+            refs:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                required: [kind, id]
+                properties:
+                  kind: {type: string, enum: [COUNTER, IR_SPAN, RUN, GRAPH]}
+                  id: {type: string}
+                  locator: {type: string}
+        patch_uri: {type: string}
+        rationale: {type: string}
+        created_at: {type: string, format: date-time}
+    RecommendationList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Recommendation'}}, next_cursor: {type: string}}}
+    Decide: {type: object, required: [rationale], properties: {rationale: {type: string, minLength: 4}}}
+    DecideResult:
+      type: object
+      required: [rec]
+      properties:
+        rec: {$ref: '#/components/schemas/Recommendation'}
+        approval_token: {type: string, description: 'present on approve only; 24h expiry'}
+    ScenarioSet:
+      type: object
+      required: [base, mutations]
+      properties:
+        base: {type: object, required: [snapshot_ref], properties: {snapshot_ref: {type: string}}}
+        mutations:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            description: exactly one of the mutation kinds
+            properties:
+              gpu_sku: {type: string}
+              parallelism: {type: object, properties: {tp: {type: integer, minimum: 1}, pp: {type: integer, minimum: 1}, dp: {type: integer, minimum: 1}, ep: {type: integer, minimum: 1}, micro_batch: {type: integer, minimum: 1}}}
+              toolchain: {$ref: '#/components/schemas/ToolchainRef'}
+              quantization: {type: string, enum: [bf16, fp8, int4]}
+              node_count: {type: integer, minimum: 1}
+            minProperties: 1
+            maxProperties: 1
+    SimulationResult:
+      type: object
+      required: [job_id, state]
+      properties:
+        job_id: {type: string, format: uuid}
+        state: {type: string, enum: [queued, running, done, failed]}
+        predictions:
+          type: array
+          items:
+            type: object
+            required: [scenario_index, throughput, cost_usd_per_hour, support]
+            properties:
+              scenario_index: {type: integer}
+              throughput: {type: number}
+              ttft_ms: {type: number}
+              tpot_ms: {type: number}
+              power_w: {type: number}
+              cost_usd_per_hour: {type: number}
+              band: {type: object, properties: {p10: {type: number}, p90: {type: number}}}
+              support: {type: string, enum: [FULL, LOW_SUPPORT]}
+    CapacityPlanRequest:
+      type: object
+      required: [demand_p90, latency_slo_ms]
+      properties:
+        demand_p90: {type: number, description: 'tokens/s or steps/s'}
+        latency_slo_ms: {type: number}
+        allowed_skus: {type: array, items: {type: string}}
+        power_cap_kw: {type: number}
+    CapacityPlan:
+      type: object
+      required: [plan_id, nodes, monthly_usd]
+      properties:
+        plan_id: {type: string, format: uuid}
+        nodes: {type: array, items: {type: object, properties: {sku: {type: string}, count: {type: integer}}}}
+        parallelism: {type: object}
+        monthly_usd: {type: number}
+        shadow_prices: {type: object, additionalProperties: {type: number}}
+    CapacityPlanList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/CapacityPlan'}}, next_cursor: {type: string}}}
+    Attribution:
+      type: object
+      required: [items, completeness]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [key, usd_micros]
+            properties:
+              key: {type: string}
+              usd_micros: {type: integer, format: int64}
+              gpu_hours: {type: number}
+              tokens: {type: integer, format: int64}
+        next_cursor: {type: string}
+        completeness: {type: number, minimum: 0, maximum: 1}
+    Savings:
+      type: object
+      required: [period, twin_usd_micros, trailing_usd_micros, contractual_usd_micros, baseline_id, baseline_version]
+      properties:
+        period: {type: string}
+        twin_usd_micros: {type: integer, format: int64}
+        trailing_usd_micros: {type: integer, format: int64}
+        contractual_usd_micros: {type: integer, format: int64}
+        baseline_id: {type: string, format: uuid}
+        baseline_version: {type: integer}
+        method_doc_uri: {type: string}
+        actions: {type: array, items: {type: object, properties: {rec_id: {type: string, format: uuid}, shapley_usd_micros: {type: integer, format: int64}, ci: {type: object, properties: {low: {type: integer}, high: {type: integer}}}}}}
+    SavingsList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Savings'}}}}
+    BaselineCreate: {type: object, required: [frozen_state], properties: {frozen_state: {type: object}}}
+    Baseline:
+      type: object
+      required: [baseline_id, version, frozen_state_hash, twin_model_version, anchored_at]
+      properties:
+        baseline_id: {type: string, format: uuid}
+        version: {type: integer}
+        frozen_state_hash: {type: string}
+        twin_model_version: {type: string}
+        anchored_at: {type: string, format: date-time}
+        cosigned: {type: boolean}
+    Cluster:
+      type: object
+      required: [cluster_id, display_name, status]
+      properties:
+        cluster_id: {type: string, format: uuid}
+        display_name: {type: string}
+        provider: {type: string}
+        status: {type: string, enum: [pending, connected, degraded, disconnected]}
+    ClusterBootstrap:
+      allOf:
+        - {$ref: '#/components/schemas/Cluster'}
+        - {type: object, required: [bootstrap_token, helm_command], properties: {bootstrap_token: {type: string, description: single-use 1h}, helm_command: {type: string}}}
+    ClusterList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Cluster'}}}}
+    Device:
+      type: object
+      required: [gpu_uuid, node, sku]
+      properties: {gpu_uuid: {type: string}, node: {type: string}, sku: {type: string}, mig_profile: {type: string}, health: {type: string, enum: [ok, warning, failing]}}
+    DeviceList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Device'}}, next_cursor: {type: string}}}
+    Rate:
+      type: object
+      required: [sku, basis, usd_micros_per_hour]
+      properties: {sku: {type: string}, basis: {type: string, enum: [ondemand, commit, spot, amortized]}, usd_micros_per_hour: {type: integer, format: int64}, effective_from: {type: string, format: date-time}}
+    RateList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Rate'}}}}
+    PolicyCreate:
+      type: object
+      required: [name, rego, enforcement]
+      properties:
+        name: {type: string}
+        rego: {type: string}
+        enforcement: {type: string, enum: [block, warn, audit]}
+    Policy:
+      allOf:
+        - {$ref: '#/components/schemas/PolicyCreate'}
+        - {type: object, required: [policy_id, version], properties: {policy_id: {type: string, format: uuid}, version: {type: integer}, updated_at: {type: string, format: date-time}}}
+    PolicyList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Policy'}}}}
+    Decision:
+      type: object
+      required: [policy_id, verdict, at]
+      properties: {policy_id: {type: string, format: uuid}, verdict: {type: string, enum: [allow, block, warn]}, subject: {type: object}, ledger_seq: {type: integer, format: int64}, at: {type: string, format: date-time}}
+    DecisionList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Decision'}}, next_cursor: {type: string}}}
+    AuditEntry:
+      type: object
+      required: [seq, entry_hash, prev_hash, actor, action, at]
+      properties:
+        seq: {type: integer, format: int64}
+        entry_hash: {type: string, description: hex BLAKE3-256}
+        prev_hash: {type: string}
+        actor: {type: string}
+        action: {type: string}
+        subject: {type: object}
+        at: {type: string, format: date-time}
+    AuditEntryList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/AuditEntry'}}}}
+    AgentTask:
+      type: object
+      required: [task_id, kind, state]
+      properties:
+        task_id: {type: string, format: uuid}
+        kind: {type: string, enum: [compiler_opt, kernel_analysis, cost_opt, capacity, governance, failure_pred, rca, twin_calib, advisor, decision]}
+        state: {type: string, enum: [created, planning, executing, awaiting_approval, done, failed]}
+        tokens_in: {type: integer}
+        tokens_out: {type: integer}
+        transcript_uri: {type: string}
+    AgentTaskList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/AgentTask'}}, next_cursor: {type: string}}}
+    Tenant: {type: object, required: [tenant_id, name, plan, region, status], properties: {tenant_id: {type: string, format: uuid}, name: {type: string}, plan: {type: string}, region: {type: string}, status: {type: string, enum: [active, suspended, offboarding]}}}
+    User: {type: object, required: [user_id, email], properties: {user_id: {type: string, format: uuid}, email: {type: string, format: email}, roles: {type: array, items: {type: string}}}}
+    UserList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/User'}}}}
+    Role: {type: object, required: [role_id, name], properties: {role_id: {type: string, format: uuid}, name: {type: string}, permissions: {type: object}}}
+    RoleList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/Role'}}}}
+    ApiKey: {type: object, required: [key_id, prefix, scopes], properties: {key_id: {type: string, format: uuid}, prefix: {type: string}, scopes: {type: array, items: {type: string}}, expires_at: {type: string, format: date-time}, revoked_at: {type: string, format: date-time}}}
+    ApiKeyList: {type: object, required: [items], properties: {items: {type: array, items: {$ref: '#/components/schemas/ApiKey'}}}}
+    JobRef: {type: object, required: [job_id], properties: {job_id: {type: string, format: uuid}, status_url: {type: string}}}
+    Job:
+      type: object
+      required: [job_id, kind, state]
+      properties:
+        job_id: {type: string, format: uuid}
+        kind: {type: string}
+        state: {type: string, enum: [queued, running, done, failed]}
+        result_uri: {type: string}
+        created_at: {type: string, format: date-time}
+        finished_at: {type: string, format: date-time}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+package nydux.runtime.v1;
+option go_package = "github.com/nydux/platform/api/nydux/runtime/v1;runtimev1";
+import "buf/validate/validate.proto";
+
+message ServingMetrics {
+  string deploy = 1 [(buf.validate.field).string.min_len = 1];
+  float ttft_ms = 2;
+  float tpot_ms = 3;
+  uint32 batch = 4;
+  float kv_hit = 5 [(buf.validate.field).float = {gte: 0, lte: 1}];
+  uint32 req = 6;
+  uint64 tokens_in = 7;
+  uint64 tokens_out = 8;
+}
+
+message NcclCollective {
+  string job = 1;
+  string kind = 2 [(buf.validate.field).string = {in: ["allreduce","allgather","reducescatter","broadcast","alltoall"]}];
+  uint64 bytes = 3;
+  float duration_us = 4;
+  float busbw_gbps = 5;
+  uint32 ranks = 6;
+  string algo = 7;   // ring|tree|collnet
+  string proto = 8;  // LL|LL128|Simple
+}
+
+message TrainingStep {
+  string job = 1;
+  uint64 step = 2;
+  float step_time_ms = 3;
+  float dataloader_wait_ms = 4;
+  float comm_exposed_ms = 5;   // non-overlapped
+  float bubble_ms = 6;         // pipeline
+  float mfu = 7 [(buf.validate.field).float = {gte: 0, lte: 1}];
+}

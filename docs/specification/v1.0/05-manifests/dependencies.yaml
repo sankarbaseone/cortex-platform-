@@ -1,0 +1,13 @@
+# Allowed dependency edges (depguard source). Layering per RFC-001/ECD-001; violations fail lint.
+version: 1
+layers:
+  domain: {may_import: [libs/go/nyxerr, stdlib]}
+  ports: {may_import: [domain]}
+  adapters: {may_import: [domain, ports, libs/go/*, api/*]}
+  cmd: {may_import: [everything-in-service, libs/go/*]}
+service_to_service: grpc-only-via-api-package (no direct package imports across services/)
+external_pins:  # ECD-001 §toolchain; renovate keeps within minor
+  go: {grpc: 1.66.x, pgx: 5.7.x, franz-go: 1.17.x, opa: 0.68.x, otel: 1.30.x, rapid: 1.1.x}
+  rust: {tokio: 1.40, tonic: 0.12, rdkafka: 0.36, blake3: 1.5, pyo3: 0.22, criterion: 0.5}
+  ts: {react: 18.3, tanstack-router: 1.x, tanstack-query: 5.x, visx: 3.x, playwright: 1.47}
+forbidden: [gorm, wire, fx, redux, axios-outside-api-client, pandas-in-services]

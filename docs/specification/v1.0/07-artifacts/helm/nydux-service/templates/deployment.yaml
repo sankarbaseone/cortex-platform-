@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  labels: {{- include "nydux.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector: {matchLabels: {app.kubernetes.io/name: {{ .Values.name }}}}
+  template:
+    metadata:
+      labels: {{- include "nydux.labels" . | nindent 8 }}
+      annotations:
+        {{- if .Values.mesh.inject }}linkerd.io/inject: enabled{{- end }}
+    spec:
+      serviceAccountName: {{ .Values.name }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- if .Values.topologySpread }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: {matchLabels: {app.kubernetes.io/name: {{ .Values.name }}}}
+      {{- end }}
+      containers:
+        - name: {{ .Values.name }}
+          image: {{ include "nydux.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - {name: grpc, containerPort: {{ .Values.grpcPort }}}
+            - {name: ops,  containerPort: {{ .Values.opsPort }}}
+          env: {{- toYaml .Values.env | nindent 12 }}
+          {{- if .Values.envFromSecret }}
+          envFrom: [{secretRef: {name: {{ .Values.envFromSecret }}}}]
+          {{- end }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:  {httpGet: {path: /healthz, port: ops}, initialDelaySeconds: 5, periodSeconds: 10}
+          readinessProbe: {httpGet: {path: /readyz,  port: ops}, initialDelaySeconds: 5, periodSeconds: 5}
+          startupProbe:   {httpGet: {path: /startupz, port: ops}, failureThreshold: 30, periodSeconds: 2}

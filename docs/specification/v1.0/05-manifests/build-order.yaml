@@ -1,0 +1,47 @@
+# ECD-015 §2 — Claude Code execution DAG. Execute top-to-bottom; deps must be green first.
+# Every task: files (create/complete), verify (must pass), dod (definition of done). No task requires a design decision.
+version: 1
+sprints:
+  - id: S0-foundation
+    tasks:
+      - {id: T-001, name: repo-init, files: ["repository skeleton per ECD-001 tree", ".tool-versions", "Makefile", "buf.yaml", ".golangci.yml", "CLAUDE.md", "README.md"], verify: make bootstrap && make lint, dod: empty-green pipeline}
+      - {id: T-002, name: protos-in, deps: [T-001], files: ["copy ALL shipped proto/nydux/**"], verify: buf lint && buf generate, dod: generated stubs compile}
+      - {id: T-003, name: libs-core, deps: [T-002], files: ["libs/go/{nyxerr", "nyxpg", "nyxbus", "nyxotel", "nyxhttp", "nyxrun", "nyxclock", "config}"], verify: make test, dod: exemplar main.go compiles against libs}
+      - {id: T-004, name: migrations-in, deps: [T-001], files: ["copy shipped migrations to owners per ECD-006 map", "make migrate wrapper with prod seed-guard"], verify: make dev-up && itest schema smoke, dod: RLS cross-tenant itest red-green}
+      - {id: T-005, name: ci-live, deps: [T-001], files: [".github/workflows/ci.yaml (shipped)", "tools/semgrep rules", "tools/genmanifests drift checks"], verify: PR shows all gates, dod: drift check fails on intentional registry desync test}
+  - id: S1-ingest-spine
+    tasks:
+      - {id: T-101, name: kernel-registry, deps: [T-003, T-004], files: ["services/kernel-registry/** from exemplar"], verify: make itest SVC=kernel-registry, dod: F-KR-01/02 specs green incl. property tests}
+      - {id: T-102, name: sinks, deps: [T-101], files: ["services/ch-sink", "services/ts-sink"], verify: itest with testcontainers CH/TS, dod: ingest e2e fixture lands queryable}
+      - {id: T-103, name: gateway+collector-mvp, deps: [T-002], files: ["dataplane/edge-gateway (Submit stream", "spool", "D.9 filter)", "dataplane/collector (dcgm mock source in dev)"], verify: cargo test + privacy filter fuzz corpus, dod: RejectDetail privacy_filter path proven}
+      - {id: T-104, name: tenant+auth, deps: [T-004], files: ["services/tenant-svc", "services/auth-svc (OIDC", "api keys", "Ed25519 tokens F-AT-01)"], verify: itest token mint/verify incl. SoD claim, dod: bootstrap-token flow e2e}
+  - id: S2-compiler-intelligence
+    tasks:
+      - {id: T-201, name: canonicalizer+hash, files: ["crates/canonicalizer"], verify: golden + idempotence property, dod: hash stability across runs proven}
+      - {id: T-202, name: parsers, deps: [T-201], files: ["crates/ptx-parser", "crates/sass-decoder"], verify: fuzz 1h no-panic + parser-matrix goldens, dod: MEASUREMENT_ONLY fallback path tested}
+      - {id: T-203, name: kes, deps: [T-201], files: ["crates/kes with ECD-003 §3.5 weight tables"], verify: monotonicity/bounds properties + NCU-fixture goldens, dod: profile weight switch (decode) golden}
+      - {id: T-204, name: compiler-analyzer, deps: [T-202, T-203, T-103], files: ["dataplane/compiler-analyzer (pipeline+cache+pyo3 bridge per RFC_CONFLICT-003)"], verify: e2e SubmitIR->kernel.scored on dev stack, dod: first-score p95 <5min on seeded corpus}
+      - {id: T-205, name: regression-svc, deps: [T-101], files: ["services/regression-svc F-RG-01/02/03"], verify: antisymmetry property + gate grammar table tests, dod: /regressions/checks 200+202 paths green}
+      - {id: T-206, name: bench-runner, deps: [T-205], files: ["services/bench-runner (bench|verify kinds", "MAD reject", "tolerance table)"], verify: itest with GPU-sim harness, dod: ErrNoisyNode reschedule + verify-fail rollback event}
+  - id: S3-value-loop
+    tasks:
+      - {id: T-301, name: recommender, deps: [T-203], files: ["services/recommender 12-pattern lib"], verify: evidence-required proto validation + pattern goldens, dod: rec.created with >=1 EvidenceRef always}
+      - {id: T-302, name: policy-svc, deps: [T-104], files: ["services/policy-svc embedding shipped rego + opa test in CI"], verify: opa test security/opa/ + fail-closed itest (CH-02 precursor), dod: decide p95<50ms bench}
+      - {id: T-303, name: audit-svc, deps: [T-104], files: ["services/audit-svc F-AU-01/02 + gap detector + daily anchor job"], verify: 1M-entry verify bench <=10s + tamper test, dod: chain survives pg failover itest}
+      - {id: T-304, name: rec-lifecycle-api, deps: [T-301, T-302, T-303], files: ["control-plane-api rec endpoints + agent-orchestrator apply path"], verify: playwright rec lifecycle + SoD spec, dod: approve->apply->verify->rollback e2e green}
+      - {id: T-305, name: graph-svc, deps: [T-101], files: ["services/graph-svc writer+named queries+MVs"], verify: query p95 bench + MV fallback test, dod: reg_blast on seeded graph}
+  - id: S4-economics
+    tasks:
+      - {id: T-401, name: finance-svc, deps: [T-102], files: ["F-FN-01 apportion incl. commit deconvolution"], verify: sum-preservation property (integer micros), dod: attribution completeness surfaced}
+      - {id: T-402, name: twin-svc, deps: [T-305], files: ["analytical core + residual + LOW_SUPPORT"], verify: golden scenarios MAPE<=15% CI gate, dod: 200-scenario grid <30s}
+      - {id: T-403, name: savings-svc, deps: [T-401, T-402, T-303], files: ["F-SV-01/02 + baselines + reanchor redlock + replay bundles"], verify: Shapley efficiency property + byte-identical replay golden, dod: dual-report + co-sign flow e2e}
+  - id: S5-surface
+    tasks:
+      - {id: T-501, name: web-app, deps: [T-304], files: ["web/app per component-tree.yaml + shipped router + api-client gen"], verify: full playwright suite + axe, dod: all normative testids present}
+      - {id: T-502, name: notify+reports, deps: [T-304], files: ["services/notify-svc", "report jobs"], verify: matrix routing itest, dod: exec monthly savings pdf golden}
+      - {id: T-503, name: agents, deps: [T-302, T-304], files: ["agent-orchestrator loop + advisor + tool guard rego"], verify: injection eval set + budget-stop test + kill-switch test, dod: write-tool without token = denied, audited}
+  - id: S6-harden-ga
+    tasks:
+      - {id: T-601, name: runbook-bodies+dashboards, files: ["complete 19 runbooks from shipped seeds", "generate 6 dashboards via dashboard-gen"], verify: registry gates green, dod: GA gate passes}
+      - {id: T-602, name: chaos+soak+load, files: ["chaos-mesh manifests from plan", "k6 in weekly job"], verify: CH-01..08 expectations met + 72h soak, dod: perf budgets asserted}
+      - {id: T-603, name: dr-drill+pentest-fixes, files: ["drdrill.yaml workflow"], verify: restore<1h + pentest criticals=0, dod: SHIP}

@@ -1,0 +1,98 @@
+{
+ "title": "NYDUX / Ingest Pipeline",
+ "uid": "nydux-ingest",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Ingest e2e p95 (s)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum(rate(nydux_ingest_e2e_seconds_bucket[10m])) by (le, sink))",
+     "legendFormat": "{{sink}}"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Late-row ratio",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "max by (sink) (nydux_ingest_late_rows_ratio)",
+     "legendFormat": "{{sink}}"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Sink batch failures/s",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (sink, reason) (rate(nydux_ingest_failures_total[5m]))",
+     "legendFormat": "{{sink}}/{{reason}}"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Gateway spool bytes by cluster",
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux_gateway_spool_bytes",
+     "legendFormat": "{{cluster}}"
+    },
+    {
+     "expr": "nydux_gateway_spool_capacity_bytes",
+     "legendFormat": "cap {{cluster}}"
+    }
+   ]
+  }
+ ]
+}

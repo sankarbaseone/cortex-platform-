@@ -1,0 +1,33 @@
+syntax = "proto3";
+package nydux.audit.v1;
+option go_package = "github.com/nydux/platform/api/nydux/audit/v1;auditv1";
+import "buf/validate/validate.proto";
+
+message AuditEntry {
+  int64 seq = 1 [(buf.validate.field).int64.gte = 0];
+  bytes entry_hash = 2 [(buf.validate.field).bytes.len = 32];
+  bytes prev_hash = 3 [(buf.validate.field).bytes.len = 32];
+  string actor = 4 [(buf.validate.field).string.min_len = 1];  // "user:<uuid>"|"svc:<name>"|"agent:<task>"
+  string action = 5 [(buf.validate.field).string.min_len = 1]; // closed catalog in ECD-012
+  bytes subject_json = 6;   // canonical JSON
+  int64 at_ns = 7;
+}
+
+message AuditAppended {  // payload for nydux.audit.appended.v1
+  AuditEntry entry = 1;
+}
+
+message AppendRequest { AuditEntry entry = 1; }  // seq/prev/entry_hash server-computed; client fields ignored
+message AppendResponse { int64 seq = 1; bytes entry_hash = 2; }
+
+message VerifyRequest { int64 from_seq = 1; }
+message VerifyResponse {
+  bool valid = 1;
+  int64 verified_through_seq = 2;
+  int64 first_bad_seq = 3;  // 0 when valid
+}
+
+service AuditService {
+  rpc Append(AppendRequest) returns (AppendResponse);
+  rpc Verify(VerifyRequest) returns (VerifyResponse);
+}

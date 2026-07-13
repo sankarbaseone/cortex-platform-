@@ -1,0 +1,24 @@
+# Canonical multi-stage Dockerfile for every Go service (ECD-002 NSFS row).
+# Build arg SVC selects the service; identical image shape platform-wide.
+ARG GO_VERSION=1.23.4
+FROM golang:${GO_VERSION} AS build
+ARG SVC
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION:-dev}" \
+      -o /out/app ./services/${SVC}/cmd/${SVC}
+
+FROM gcr.io/distroless/static-debian12:nonroot
+ARG SVC
+LABEL org.opencontainers.image.source="https://github.com/nydux/platform" \
+      org.opencontainers.image.title="${SVC}"
+COPY --from=build /out/app /app
+USER nonroot:nonroot
+# Ops listener (healthz/readyz/metrics) on 9090; gRPC on 8443 (chart values).
+EXPOSE 8443 9090
+ENTRYPOINT ["/app"]
+# SBOM + signing happen in CI (syft + cosign), not in-image (release.yaml).

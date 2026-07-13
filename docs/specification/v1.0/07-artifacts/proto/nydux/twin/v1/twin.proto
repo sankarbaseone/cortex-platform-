@@ -1,0 +1,41 @@
+syntax = "proto3";
+package nydux.twin.v1;
+option go_package = "github.com/nydux/platform/api/nydux/twin/v1;twinv1";
+import "buf/validate/validate.proto";
+
+message Parallelism {
+  uint32 tp = 1 [(buf.validate.field).uint32.gte = 1];
+  uint32 pp = 2 [(buf.validate.field).uint32.gte = 1];
+  uint32 dp = 3 [(buf.validate.field).uint32.gte = 1];
+  uint32 ep = 4;
+  uint32 micro_batch = 5;
+}
+
+message Scenario {
+  string snapshot_ref = 1 [(buf.validate.field).string.min_len = 1];
+  // exactly one mutation set per scenario (validated in service; proto3 optional semantics)
+  string gpu_sku = 2;
+  Parallelism parallelism = 3;
+  string toolchain_fp = 4;
+  string quantization = 5 [(buf.validate.field).string = {in: ["", "bf16","fp8","int4"]}];
+  uint32 node_count = 6;
+}
+
+message Prediction {
+  uint32 scenario_index = 1;
+  double throughput = 2;
+  double ttft_ms = 3;
+  double tpot_ms = 4;
+  double power_w = 5;
+  int64 cost_usd_micros_per_hour = 6;
+  double band_p10 = 7;
+  double band_p90 = 8;
+  string support = 9 [(buf.validate.field).string = {in: ["FULL","LOW_SUPPORT"]}];
+}
+
+message SimulateRequest { repeated Scenario scenarios = 1 [(buf.validate.field).repeated = {min_items: 1, max_items: 200}]; }
+message SimulateResponse { string job_id = 1; }
+
+service TwinService {
+  rpc Simulate(SimulateRequest) returns (SimulateResponse);
+}

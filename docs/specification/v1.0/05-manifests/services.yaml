@@ -1,0 +1,27 @@
+# Canonical service catalog (RFC-014 frozen names). Values overlays + CODEOWNERS + build matrix derive from here.
+version: 1
+defaults: {chart: nydux-service, grpc_port: 8443, ops_port: 9090, replicas: 3, lang: go}
+services:
+  control-plane-api: {role: REST/gRPC gateway + jobs, db: [pg], consumes: [], produces: [rec.approved], hpa_max: 20}
+  kernel-registry:   {role: kernel/toolchain registry, db: [pg], consumes: [compiler.kernel.*], produces: [kernel.scored], exemplar: true}
+  regression-svc:    {role: CRI + gates, db: [pg, ch], consumes: [governance.toolchain.approved], produces: [regression.detected]}
+  bench-runner:      {role: bench+verify jobs (RFC_CONFLICT-001), db: [pg], gpu: true, consumes: [rec.applied], produces: [benchmark.completed, rec.verified], replicas: 2}
+  recommender:       {role: pattern detection + rec lifecycle, db: [pg], consumes: [kernel.scored], produces: [rec.created]}
+  graph-svc:         {role: knowledge graph writer+queries, db: [pg-age], consumes: [kernel.scored, regression.detected, cost.calculated, rec.*], produces: []}
+  finance-svc:       {role: cost attribution, db: [ts, ch], consumes: [runtime.serving.metrics, agent.task.completed], produces: [cost.calculated]}
+  savings-svc:       {role: baselines + savings + Shapley, db: [pg, ts], consumes: [rec.verified], produces: [savings.reported, baseline.reanchored]}
+  twin-svc:          {role: simulation + capacity ILP, db: [pg], consumes: [deploy.triggered], produces: [], cpu_heavy: true, hpa_max: 16}
+  policy-svc:        {role: OPA decisions + governance, db: [pg], consumes: [rec.created], produces: [policy.decision, governance.toolchain.approved]}
+  audit-svc:         {role: hash-chain ledger, db: [pg], consumes: [rec.approved, rec.applied, deploy.*, savings.reported, baseline.reanchored, policy.decision], produces: [audit.appended], singleton_writer_per_tenant: true}
+  notify-svc:        {role: routing email/slack/webhook, db: [pg], consumes: [regression.detected, rec.created, policy.decision, savings.reported], produces: []}
+  tenant-svc:        {role: tenants/users/roles/clusters, db: [pg], consumes: [], produces: []}
+  auth-svc:          {role: OIDC + api keys + approval tokens, db: [pg], consumes: [], produces: []}
+  ch-sink:           {role: telemetry→ClickHouse, db: [ch], consumes: [infra.gpu.sample, runtime.serving.metrics, kernel.scored], produces: [], hpa_max: 16}
+  ts-sink:           {role: business ts→Timescale, db: [ts], consumes: [cost.calculated, savings.reported], produces: []}
+dataplane:  # rust, customer-side
+  collector:         {kind: daemonset, lang: rust}
+  edge-gateway:      {kind: deployment, lang: rust, spool: 24h}
+  compiler-analyzer: {kind: deployment, lang: rust+pyo3}
+  runtime-analyzer:  {kind: deployment, lang: rust}
+web: {app: {lang: ts, kind: static+bff}}
+agent-orchestrator: {role: agent loop (RFC-008), db: [pg], lang: go, consumes: [rec.approved], produces: [rec.applied, deploy.triggered, agent.task.completed], note: listed in RFC-008; deploys via canonical chart}

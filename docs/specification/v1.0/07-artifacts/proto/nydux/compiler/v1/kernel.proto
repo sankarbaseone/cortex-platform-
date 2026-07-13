@@ -1,0 +1,147 @@
+// proto/nydux/compiler/v1/kernel.proto
+// Compiler-layer wire contracts: kernels, scores, regressions.
+// Extends RFC-002 / ECD-003 §3.2. Message field numbers FROZEN once merged.
+syntax = "proto3";
+
+package nydux.compiler.v1;
+
+option go_package = "github.com/nydux/platform/api/nydux/compiler/v1;compilerv1";
+
+import "buf/validate/validate.proto";
+
+// ---------- Enums ----------
+
+enum KernelStatus {
+  KERNEL_STATUS_UNSPECIFIED = 0;
+  KERNEL_STATUS_SCORED = 1;           // dynamic KES (NCU-joined)
+  KERNEL_STATUS_STATIC_ESTIMATE = 2;  // static-only KES, confidence in [0.4,0.6]
+  KERNEL_STATUS_MEASUREMENT_ONLY = 3; // unknown IR version / parser miss
+}
+
+enum WorkloadProfile {
+  WORKLOAD_PROFILE_UNSPECIFIED = 0;
+  WORKLOAD_PROFILE_TRAINING = 1;
+  WORKLOAD_PROFILE_PREFILL = 2;
+  WORKLOAD_PROFILE_DECODE = 3;
+  WORKLOAD_PROFILE_HPC = 4;
+}
+
+// ---------- Core messages ----------
+
+message ToolchainRef {
+  string fingerprint = 1 [(buf.validate.field).string = {len: 64, pattern: "^[a-f0-9]{64}$"}];
+  string cuda = 2;
+  string ptxas = 3;
+  string triton = 4;
+  string torch = 5;
+  string host_cc = 6;
+}
+
+message KernelScore {
+  double kes = 1 [(buf.validate.field).double = {gte: 0, lte: 100}];
+  // Closed component set: roof, occ, stall, mem, tc, mix (ECD-003 §3.3).
+  map<string, double> components = 2;
+  string kes_model_version = 3 [(buf.validate.field).string.min_len = 1];
+  double confidence = 4 [(buf.validate.field).double = {gte: 0, lte: 1}];
+  int64 scored_at_ns = 5;
+  WorkloadProfile profile = 6;
+}
+
+message Kernel {
+  string kernel_hash = 1 [(buf.validate.field).string = {len: 64, pattern: "^[a-f0-9]{64}$"}];
+  string family_hash = 2 [(buf.validate.field).string = {len: 64, pattern: "^[a-f0-9]{64}$"}];
+  string arch = 3 [(buf.validate.field).string = {min_len: 4, max_len: 16}]; // e.g. "sm_90"
+  KernelStatus status = 4;
+  KernelScore score = 5; // unset when MEASUREMENT_ONLY
+  ToolchainRef toolchain = 6;
+  repeated string pattern_tags = 7;
+  int64 first_seen_ns = 8;
+  int64 last_seen_ns = 9;
+}
+
+// ---------- Event payloads (Kafka; enveloped per common/v1) ----------
+
+message KernelGenerated {
+  string family_hash = 1;
+  string source = 2 [(buf.validate.field).string = {in: ["triton","inductor","xla","cuda","cublas"]}];
+  map<string, double> ir_features = 3; // numeric allowlist only (RFC-003 D.9)
+}
+
+message KernelCompiled {
+  string kernel_hash = 1;
+  ToolchainRef toolchain = 2;
+  repeated string flags = 3;
+}
+
+message PtxGenerated {
+  string kernel_hash = 1;
+  uint32 regs = 2;
+  map<string, uint32> instr_mix = 3;
+}
+
+message SassGenerated {
+  string kernel_hash = 1;
+  uint32 spills = 2;
+  double decode_confidence = 3 [(buf.validate.field).double = {gte: 0, lte: 1}];
+}
+
+message KernelScored {
+  string kernel_hash = 1;
+  string family_hash = 2;
+  string arch = 3;
+  KernelScore score = 4;
+  KernelStatus status = 5;
+  string toolchain_fp = 6;
+}
+
+message RegressionDetected {
+  string family_hash = 1;
+  ToolchainRef from = 2;
+  ToolchainRef to = 3;
+  double delta_perf = 4;                 // fractional slowdown, >0 means regression
+  double cri_contrib = 5 [(buf.validate.field).double = {gte: 0}];
+  repeated string mechanism_tags = 6;    // e.g. "loop_unroll","sched","host_cc"
+  string shape_class = 7;
+}
+
+// ---------- gRPC services ----------
+
+message GetKernelRequest {
+  string kernel_hash = 1 [(buf.validate.field).string = {len: 64}];
+}
+
+message ListKernelsRequest {
+  // RSQL subset over whitelisted fields: kes, arch, status, family_hash (ECD-003 §3.8).
+  string filter = 1 [(buf.validate.field).string.max_len = 512];
+  string sort = 2;   // e.g. "-kes"
+  int32 limit = 3 [(buf.validate.field).int32 = {gte: 1, lte: 500}];
+  string cursor = 4; // opaque keyset cursor
+}
+
+message ListKernelsResponse {
+  repeated Kernel items = 1;
+  string next_cursor = 2;
+}
+
+message CheckRegressionsRequest {
+  ToolchainRef from = 1;
+  ToolchainRef to = 2;
+  // Gate expression grammar (ECD-002 ASM-002-1): "CRI>0.10" | "CRI>=0.10".
+  string fail_on = 3 [(buf.validate.field).string.pattern = "^CRI>=?[0-9]*\\.?[0-9]+$"];
+}
+
+message CheckRegressionsResponse {
+  double fleet_cri = 1;
+  bool gate_passed = 2;
+  repeated RegressionDetected regressions = 3;
+}
+
+service KernelService {
+  rpc GetKernel(GetKernelRequest) returns (Kernel);
+  rpc ListKernels(ListKernelsRequest) returns (ListKernelsResponse);
+  rpc StreamScores(ListKernelsRequest) returns (stream KernelScored);
+}
+
+service RegressionService {
+  rpc CheckRegressions(CheckRegressionsRequest) returns (CheckRegressionsResponse);
+}

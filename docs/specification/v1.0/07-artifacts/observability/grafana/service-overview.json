@@ -1,0 +1,37 @@
+{
+  "title": "NYDUX / Service Overview",
+  "uid": "nydux-svc-overview",
+  "schemaVersion": 39,
+  "tags": ["nydux", "generated"],
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": [
+    {"name": "service", "type": "query", "datasource": "Prometheus",
+     "query": "label_values(nydux_grpc_requests_total, service)", "refresh": 2}
+  ]},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "RPS by code — $service",
+     "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+     "targets": [{"expr": "sum by (code) (rate(nydux_grpc_requests_total{service=\"$service\"}[5m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "p50/p95/p99 latency — $service",
+     "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+     "targets": [
+       {"expr": "histogram_quantile(0.50, sum(rate(nydux_grpc_duration_seconds_bucket{service=\"$service\"}[5m])) by (le))", "legendFormat": "p50"},
+       {"expr": "histogram_quantile(0.95, sum(rate(nydux_grpc_duration_seconds_bucket{service=\"$service\"}[5m])) by (le))", "legendFormat": "p95"},
+       {"expr": "histogram_quantile(0.99, sum(rate(nydux_grpc_duration_seconds_bucket{service=\"$service\"}[5m])) by (le))", "legendFormat": "p99"}]},
+    {"id": 3, "type": "timeseries", "title": "Consumer lag (s) — $service groups",
+     "gridPos": {"x": 0, "y": 8, "w": 8, "h": 8},
+     "targets": [{"expr": "max by (topic) (nydux_bus_consumer_lag_seconds{service=\"$service\"})"}]},
+    {"id": 4, "type": "timeseries", "title": "DLQ depth — $service topics",
+     "gridPos": {"x": 8, "y": 8, "w": 8, "h": 8},
+     "targets": [{"expr": "max by (topic) (nydux_bus_dlq_depth{service=\"$service\"})"}]},
+    {"id": 5, "type": "timeseries", "title": "Outbox unpublished rows",
+     "gridPos": {"x": 16, "y": 8, "w": 8, "h": 8},
+     "targets": [{"expr": "nydux_outbox_unpublished_rows{service=\"$service\"}"}]},
+    {"id": 6, "type": "timeseries", "title": "Dependency call p95 by target",
+     "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+     "targets": [{"expr": "histogram_quantile(0.95, sum(rate(nydux_dependency_duration_seconds_bucket{service=\"$service\"}[5m])) by (le, target))", "legendFormat": "{{target}}"}]},
+    {"id": 7, "type": "timeseries", "title": "Circuit breaker state (1=open)",
+     "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+     "targets": [{"expr": "max by (target) (nydux_breaker_open{service=\"$service\"})"}]}
+  ]
+}

@@ -1,0 +1,111 @@
+{
+ "title": "NYDUX / Compiler Intelligence",
+ "uid": "nydux-kes",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "First-score freshness p95 (s)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux:kernel_first_score_freshness:p95",
+     "legendFormat": "p95"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "KES record status mix/s",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (status) (rate(nydux_kes_records_total[10m]))",
+     "legendFormat": "{{status}}"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Analysis duration p95 by mode",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum(rate(nydux_kes_analysis_duration_seconds_bucket[10m])) by (le, mode))",
+     "legendFormat": "{{mode}}"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Cache hit ratio",
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux_kes_cache_hit_ratio",
+     "legendFormat": "hit ratio"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "timeseries",
+   "title": "MEASUREMENT_ONLY ratio 30m",
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(nydux_kes_records_total{status=\"MEASUREMENT_ONLY\"}[30m])) / sum(rate(nydux_kes_records_total[30m]))",
+     "legendFormat": "ratio"
+    }
+   ]
+  }
+ ]
+}

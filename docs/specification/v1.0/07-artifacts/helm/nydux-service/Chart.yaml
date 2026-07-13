@@ -1,0 +1,6 @@
+apiVersion: v2
+name: nydux-service
+description: Canonical library-style chart deploying any NYDUX control-plane service (RFC-014 G.0 uniform contract).
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

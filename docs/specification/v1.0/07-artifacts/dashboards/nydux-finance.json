@@ -1,0 +1,94 @@
+{
+ "title": "NYDUX / Finance and Savings",
+ "uid": "nydux-finance",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Attribution completeness ($tenant)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux_fin_attribution_completeness{tenant=\"$tenant\"}",
+     "legendFormat": "completeness"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Parked slices by reason/h",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (reason) (increase(nydux_fin_parked_slices_total[1h]))",
+     "legendFormat": "{{reason}}"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Replay bundle exports/day",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(nydux_sav_replay_bundle_exports_total[1d])",
+     "legendFormat": "exports"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Twin rolling MAPE by model",
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux_twin_mape_rolling",
+     "legendFormat": "{{model_version}}"
+    }
+   ]
+  }
+ ]
+}

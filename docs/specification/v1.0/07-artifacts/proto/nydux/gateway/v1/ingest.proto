@@ -1,0 +1,27 @@
+syntax = "proto3";
+package nydux.gateway.v1;
+option go_package = "github.com/nydux/platform/api/nydux/gateway/v1;gatewayv1";
+import "buf/validate/validate.proto";
+import "nydux/common/v1/envelope.proto";
+
+message SubmitBatch {
+  repeated nydux.common.v1.EventEnvelope envelopes = 1 [(buf.validate.field).repeated = {min_items: 1, max_items: 1000}];
+  string spool_id = 2;        // set on link-recovery replay
+  bool replay = 3;
+}
+
+message SubmitAck {
+  uint32 accepted = 1;
+  uint32 rejected = 2;
+  repeated RejectDetail rejects = 3;
+}
+
+message RejectDetail {
+  string event_id = 1;
+  string reason = 2 [(buf.validate.field).string = {in: ["privacy_filter","schema_unknown","validate_failed","too_old"]}];
+  string field = 3;  // for privacy_filter: offending field path
+}
+
+service IngestService {
+  rpc Submit(stream SubmitBatch) returns (stream SubmitAck);
+}

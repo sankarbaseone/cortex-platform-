@@ -1,0 +1,77 @@
+{
+ "title": "NYDUX / Regressions and Gates",
+ "uid": "nydux-cri",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Fleet CRI ($tenant)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "nydux_cri_value{tenant=\"$tenant\"}",
+     "legendFormat": "CRI"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Gate evaluations pass/fail per hour",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (result) (increase(nydux_cri_gate_evaluations_total[1h]))",
+     "legendFormat": "{{result}}"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Bench variance rejects/h",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(nydux_bench_noisy_node_rejects_total[1h])",
+     "legendFormat": "rejects"
+    }
+   ]
+  }
+ ]
+}

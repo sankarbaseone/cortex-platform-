@@ -1,0 +1,18 @@
+# ECD-013 — canonical test matrix. CI maps each tier to a make target (RFC-011 J.4 unchanged).
+version: 1
+tiers:
+  unit:        {target: make test,        gate: per-PR, coverage: diff>=80%, race: on}
+  property:    {target: make test,        gate: per-PR, framework: rapid(go)/proptest(rust), required_for: [kes, cri, canonicalizer, shapley, apportion, chain]}
+  golden:      {target: make test-golden, gate: per-PR, sets: [ncu-fixture kernels x kes score, parser matrix samples, twin golden scenarios MAPE<=15%, savings replay bundles byte-identical]}
+  contract:    {target: make test-contract, gate: per-PR, tool: buf breaking + openapi-diff + registry drift checks}
+  integration: {target: make itest,       gate: per-PR, harness: testcontainers, required: [RLS cross-tenant fails, outbox exactly-once-effect, consumer duplicate+out-of-order, audit append/verify, policy fail-closed]}
+  e2e:         {target: make e2e,         gate: main,   suite: playwright core-flows (shipped) + smoke 15min}
+  load:        {target: make loadtest,    gate: weekly, tool: k6 (testing/k6-api-load.js), budgets: perf/performance-budgets.yaml}
+  soak:        {gate: pre-GA, duration: 72h, env: staging, watch: [memory RSS slope<1%/day, consumer lag flat, outbox flat, no restart loops]}
+  chaos:       {gate: pre-GA + monthly, tool: chaos-mesh, experiments: testing/chaos-plan.yaml}
+  upgrade:     {gate: release, method: install N-1 → migrate → smoke → downgrade DB down-migrations on scratch env}
+  dr:          {gate: monthly, drill: RB-DR-001, target: CP restore<1h, audit chain continuity verified}
+  security:    {gate: per-PR (sast) + quarterly (pentest), suite: abuse cases in threat-model.md; opa test security/opa/}
+  a11y:        {gate: per-PR, tool: axe in playwright}
+mutation_testing: {tool: go-mutesting, scope: [kes, cri, apportion, chain], gate: nightly, threshold: 70% killed — informational until GA, blocking at GA}
+flake_policy: quarantine label + 7-day fix SLA; >2% flake rate blocks release train (J.11)

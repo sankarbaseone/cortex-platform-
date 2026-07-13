@@ -1,0 +1,40 @@
+syntax = "proto3";
+package nydux.infra.v1;
+option go_package = "github.com/nydux/platform/api/nydux/infra/v1;infrav1";
+import "buf/validate/validate.proto";
+
+message GpuSample {
+  string gpu_uuid = 1 [(buf.validate.field).string.min_len = 1];
+  string node = 2;
+  string pod = 3;
+  string ns = 4;
+  float sm_util = 5 [(buf.validate.field).float = {gte: 0, lte: 100}];
+  float mem_util = 6 [(buf.validate.field).float = {gte: 0, lte: 100}];
+  uint32 mem_used_mb = 7;
+  float power_w = 8;
+  float temp_c = 9;
+  uint32 sm_clock = 10;
+  float pcie_tx_mb = 11;
+  float nvlink_tx_mb = 12;
+  float tensor_active = 13 [(buf.validate.field).float = {gte: 0, lte: 1}];
+  float dram_active = 14 [(buf.validate.field).float = {gte: 0, lte: 1}];
+  uint32 xid = 15;
+}
+
+message NodeHealth {
+  string node = 1 [(buf.validate.field).string.min_len = 1];
+  string state = 2 [(buf.validate.field).string = {in: ["ok","warning","failing","cordoned"]}];
+  repeated uint32 recent_xids = 3;
+  float ecc_dbe_rate = 4;
+  float nvlink_replay_rate = 5;
+  float thermal_throttle_pct = 6;
+}
+
+message DeviceInventory {
+  string gpu_uuid = 1;
+  string node = 2;
+  string sku = 3;         // e.g. "H100-SXM5-80GB"
+  string mig_profile = 4; // empty = whole GPU
+  string driver = 5;
+  string vbios = 6;
+}

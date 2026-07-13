@@ -1,0 +1,60 @@
+{
+ "title": "NYDUX / Audit Chain",
+ "uid": "nydux-audit",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Chain gaps (any = Sev-1)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(nydux_audit_chain_gaps_total[1h])",
+     "legendFormat": "{{tenant}}"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Append p95 (ms)",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "1000 * histogram_quantile(0.95, sum(rate(nydux_audit_append_seconds_bucket[10m])) by (le))",
+     "legendFormat": "p95 ms"
+    }
+   ]
+  }
+ ]
+}

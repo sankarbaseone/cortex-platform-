@@ -1,0 +1,113 @@
+# PrometheusRule CRD — complete alert + recording rules for V1.0 (ECD-011).
+# Every alert links a runbook (CI check J.9). Names for bus alerts are FIXED by ECD-007 §7.5.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: {name: nydux-rules, labels: {release: prometheus}}
+spec:
+  groups:
+    - name: nydux.slo.recordings
+      interval: 30s
+      rules:
+        - record: nydux:api_availability:ratio5m
+          expr: sum(rate(nydux_api_requests_total{code!~"5.."}[5m])) / sum(rate(nydux_api_requests_total[5m]))
+        - record: nydux:kernel_first_score_freshness:p95
+          expr: histogram_quantile(0.95, sum(rate(nydux_kes_first_score_latency_seconds_bucket[10m])) by (le))
+        - record: nydux:ingest_e2e_latency:p95
+          expr: histogram_quantile(0.95, sum(rate(nydux_ingest_e2e_seconds_bucket[10m])) by (le))
+    - name: nydux.bus
+      rules:
+        - alert: NyduxConsumerLagHigh
+          expr: |
+            (max by (topic, group) (nydux_bus_consumer_lag_seconds{class="business"}) > 60)
+            or (max by (topic, group) (nydux_bus_consumer_lag_seconds{class="telemetry"}) > 300)
+          for: 5m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-BUS-001.md", summary: "Consumer lag high on {{ $labels.topic }}"}
+        - alert: NyduxDLQNonEmptyBusiness
+          expr: max by (topic) (nydux_bus_dlq_depth{class="business"}) > 0
+          for: 1m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-BUS-002.md"}
+        - alert: NyduxDLQTelemetryBurst
+          expr: max by (topic) (nydux_bus_dlq_depth{class="telemetry"}) > 1000
+          for: 5m
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-BUS-003.md"}
+        - alert: NyduxAuditGapDetected
+          expr: increase(nydux_audit_chain_gaps_total[5m]) > 0
+          labels: {severity: page, sev: "1"}
+          annotations: {runbook: "docs/runbooks/RB-BUS-004.md", summary: "AUDIT CHAIN GAP — Sev-1"}
+        - alert: NyduxOutboxBacklog
+          expr: max by (service) (nydux_outbox_unpublished_rows) > 10000
+          for: 5m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-BUS-005.md"}
+        - alert: NyduxSchemaRegistryDrift
+          expr: increase(nydux_bus_unknown_schema_total[10m]) > 0
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-BUS-006.md"}
+    - name: nydux.slo.burn
+      rules:
+        - alert: NyduxApiAvailabilityBurnFast
+          expr: (1 - nydux:api_availability:ratio5m) > (14.4 * (1 - 0.999))
+          for: 5m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-API-001.md", summary: "API 99.9% SLO fast burn"}
+        - alert: NyduxFirstScoreFreshnessSLO
+          expr: nydux:kernel_first_score_freshness:p95 > 300
+          for: 15m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-KES-001.md", summary: "Kernel first-score p95 > 5min (L.1)"}
+        - alert: NyduxPolicyDecisionSlow
+          expr: histogram_quantile(0.95, sum(rate(nydux_policy_decision_seconds_bucket[5m])) by (le)) > 0.05
+          for: 10m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-POL-001.md", summary: "Policy p95 > 50ms — in deploy path"}
+    - name: nydux.dataplane
+      rules:
+        - alert: NyduxCollectorClockSkew
+          expr: max by (cluster, node) (nydux_collector_clock_skew_seconds) > 2
+          for: 5m
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-DP-001.md"}
+        - alert: NyduxGatewaySpoolFilling
+          expr: nydux_gateway_spool_bytes / nydux_gateway_spool_capacity_bytes > 0.8
+          for: 10m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-DP-002.md", summary: "DP spool >80% — CP link degraded"}
+        - alert: NyduxEgressPrivacyReject
+          expr: increase(nydux_gateway_egress_filter_reject_total[5m]) > 0
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-DP-003.md", summary: "Privacy filter rejecting egress — hard error by design (D.9)"}
+        - alert: NyduxAnalyzerMeasurementOnlySpike
+          expr: sum(rate(nydux_kes_records_total{status="MEASUREMENT_ONLY"}[30m])) / sum(rate(nydux_kes_records_total[30m])) > 0.2
+          for: 30m
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-KES-002.md", summary: "Parser-matrix gap likely (OQ-05)"}
+    - name: nydux.stores
+      rules:
+        - alert: NyduxPgDeadTuples
+          expr: pg_stat_user_tables_n_dead_tup / clamp_min(pg_stat_user_tables_n_live_tup, 1) > 0.2
+          for: 30m
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-DB-001.md"}
+        - alert: NyduxChPartsHigh
+          expr: max by (table) (clickhouse_parts_per_partition) > 300
+          for: 15m
+          labels: {severity: page}
+          annotations: {runbook: "docs/runbooks/RB-DB-002.md"}
+        - alert: NyduxTimescaleJobFailed
+          expr: increase(timescaledb_job_errors_total[1h]) > 0
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-DB-003.md"}
+    - name: nydux.agents
+      rules:
+        - alert: NyduxAgentSchemaRejectSpike
+          expr: increase(nydux_agent_tool_schema_reject_total[15m]) > 10
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-AG-001.md", summary: "Prompt drift suspected (RFC-008 H.11)"}
+        - alert: NyduxAgentJudgeFailLoop
+          expr: increase(nydux_agent_judge_fail_total[15m]) / clamp_min(increase(nydux_agent_tasks_total[15m]), 1) > 0.3
+          for: 15m
+          labels: {severity: ticket}
+          annotations: {runbook: "docs/runbooks/RB-AG-002.md"}

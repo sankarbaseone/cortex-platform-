@@ -1,0 +1,56 @@
+# Canonical API registry — synchronized with artifacts/api/openapi.yaml (CI check: drift fails).
+version: 1
+source_of_truth: artifacts/api/openapi.yaml
+base: https://api.nydux.ai/v1
+auth: {humans: oidc-bearer, machines: oauth2-client-credentials, ci: api-key scope ci:regressions}
+rate_limits: {read_per_min: 600, write_per_min: 120, headers: RateLimit-*}
+rsql_whitelists:
+  listKernels: [kes, arch, status, family_hash]
+  listRegressions: [family_hash, from_fp, to_fp, shape_class]
+  listRecommendations: [state, pattern_id, risk, confidence]
+endpoints:  # operationId -> {method, path, owner_service, authz_role_min, async}
+  listKernels:            {method: GET,  path: "/kernels",                          owner: kernel-registry, role: viewer}
+  getKernel:              {method: GET,  path: "/kernels/{hash}",                   owner: kernel-registry, role: viewer}
+  getKernelScore:         {method: GET,  path: "/kernels/{hash}/score",             owner: kernel-registry, role: viewer}
+  getKernelIr:            {method: GET,  path: "/kernels/{hash}/ir/{stage}",        owner: kernel-registry, role: engineer, saas_disabled: true}
+  listKernelRecommendations: {method: GET, path: "/kernels/{hash}/recommendations", owner: recommender, role: viewer}
+  listRegressions:        {method: GET,  path: "/regressions",                      owner: regression-svc, role: viewer}
+  checkRegressions:       {method: POST, path: "/regressions/checks",               owner: regression-svc, role: engineer, api_key_ok: true, async: conditional}
+  listToolchains:         {method: GET,  path: "/toolchains",                       owner: kernel-registry, role: viewer}
+  registerToolchain:      {method: POST, path: "/toolchains",                       owner: kernel-registry, role: engineer}
+  setToolchainApproval:   {method: PUT,  path: "/toolchains/{id}/approval",         owner: policy-svc, role: approver, audited: true}
+  listRecommendations:    {method: GET,  path: "/recommendations",                  owner: recommender, role: viewer}
+  getRecommendation:      {method: GET,  path: "/recommendations/{id}",             owner: recommender, role: viewer}
+  approveRecommendation:  {method: POST, path: "/recommendations/{id}/approve",     owner: recommender, role: approver, audited: true, sod: approver-not-author}
+  rejectRecommendation:   {method: POST, path: "/recommendations/{id}/reject",      owner: recommender, role: approver, audited: true}
+  applyRecommendation:    {method: POST, path: "/recommendations/{id}/apply",       owner: agent-orchestrator, role: approver, audited: true}
+  runSimulation:          {method: POST, path: "/simulations",                      owner: twin-svc, role: engineer, async: true}
+  getSimulation:          {method: GET,  path: "/simulations/{id}",                 owner: twin-svc, role: viewer}
+  createCapacityPlan:     {method: POST, path: "/capacity/plans",                   owner: twin-svc, role: engineer}
+  listCapacityPlans:      {method: GET,  path: "/capacity/plans",                   owner: twin-svc, role: viewer}
+  getAttribution:         {method: GET,  path: "/finance/attribution",              owner: finance-svc, role: finops}
+  getSavings:             {method: GET,  path: "/finance/savings",                  owner: savings-svc, role: finops}
+  createBaseline:         {method: POST, path: "/finance/baselines",                owner: savings-svc, role: approver, audited: true}
+  listBaselines:          {method: GET,  path: "/finance/baselines",                owner: savings-svc, role: finops}
+  reanchorBaseline:       {method: POST, path: "/finance/baselines/{id}/reanchor",  owner: savings-svc, role: approver, audited: true, cosign: dual}
+  listClusters:           {method: GET,  path: "/clusters",                         owner: tenant-svc, role: viewer}
+  registerCluster:        {method: POST, path: "/clusters",                         owner: tenant-svc, role: tenant-admin, audited: true}
+  listDevices:            {method: GET,  path: "/devices",                          owner: tenant-svc, role: viewer}
+  listRates:              {method: GET,  path: "/rates",                            owner: finance-svc, role: viewer}
+  listPolicies:           {method: GET,  path: "/policies",                         owner: policy-svc, role: viewer}
+  createPolicy:           {method: POST, path: "/policies",                         owner: policy-svc, role: tenant-admin, audited: true}
+  updatePolicy:           {method: PUT,  path: "/policies/{id}",                    owner: policy-svc, role: tenant-admin, audited: true}
+  deletePolicy:           {method: DELETE, path: "/policies/{id}",                  owner: policy-svc, role: tenant-admin, audited: true}
+  listPolicyDecisions:    {method: GET,  path: "/policies/{id}/decisions",          owner: policy-svc, role: viewer}
+  listAuditEntries:       {method: GET,  path: "/audit/entries",                    owner: audit-svc, role: auditor}
+  verifyAuditChain:       {method: POST, path: "/audit/verify",                     owner: audit-svc, role: auditor}
+  listAgentTasks:         {method: GET,  path: "/agents/tasks",                     owner: agent-orchestrator, role: viewer}
+  getAgentTask:           {method: GET,  path: "/agents/tasks/{id}",                owner: agent-orchestrator, role: viewer}
+  getTenant:              {method: GET,  path: "/tenants",                          owner: tenant-svc, role: viewer}
+  listUsers:              {method: GET,  path: "/users",                            owner: tenant-svc, role: tenant-admin}
+  inviteUser:             {method: POST, path: "/users",                            owner: tenant-svc, role: tenant-admin, audited: true}
+  listRoles:              {method: GET,  path: "/roles",                            owner: tenant-svc, role: tenant-admin}
+  createApiKey:           {method: POST, path: "/apikeys",                          owner: auth-svc, role: tenant-admin, audited: true}
+  listApiKeys:            {method: GET,  path: "/apikeys",                          owner: auth-svc, role: tenant-admin}
+  revokeApiKey:           {method: DELETE, path: "/apikeys/{id}",                   owner: auth-svc, role: tenant-admin, audited: true}
+  getJob:                 {method: GET,  path: "/jobs/{id}",                        owner: control-plane-api, role: viewer}

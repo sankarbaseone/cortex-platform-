@@ -1,0 +1,12 @@
+version: 1  # renders CODEOWNERS; solo-founder bootstrap: all = @sankar until hires, structure ready
+areas:
+  - {path: services/, owner: platform, github: ["@nydux/platform"]}
+  - {path: crates/, owner: compiler, github: ["@nydux/compiler"]}
+  - {path: dataplane/, owner: dataplane, github: ["@nydux/dataplane"]}
+  - {path: web/, owner: frontend, github: ["@nydux/frontend"]}
+  - {path: proto/, owner: platform, review: 2-approvals (contract change)}
+  - {path: registries/, owner: platform, review: 2-approvals}
+  - {path: charts/ infra/, owner: platform}
+  - {path: docs/runbooks/, owner: oncall}
+escalation: {sev1: page founder, sev2: ticket same-day, security: security@nydux.ai 24h ack}
+oncall: {rotation: weekly, tool: grafana-oncall, bootstrap: founder-only with sev1-only paging until team >= 3}

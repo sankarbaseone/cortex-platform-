@@ -1,0 +1,90 @@
+# artifacts/kafka/topics.yaml
+# Machine-readable topic + event catalog. Implements RFC-005 B.3/B.4/B.8.
+# Consumed by tools/genmanifests and by nyduxctl topic-apply (idempotent).
+version: 1
+defaults:
+  replication_factor: 3
+  min_insync_replicas: 2
+  compression: zstd
+  producer: {acks: all, enable_idempotence: true}
+  consumer_retry: {in_process: {base_ms: 100, max_ms: 30000, jitter: true, max_attempts: 5},
+                   retry_topic_delay_min: 15, dlq_retention_days: 14}
+topic_classes:
+  telemetry: {partitions: 32, retention_days: 7,  cleanup: delete,
+              dlq_alert_threshold: 1000}
+  business:  {partitions: 6,  retention_days: 30, cleanup: compact_delete,
+              dlq_alert_threshold: 0}
+  audit:     {partitions_per_tenant: 1, retention: forever_compacted, ordering: strict_seq}
+
+topics:
+  - {name: nydux.infra.gpu.sample.v1,          class: telemetry, key: "cluster:gpu_uuid",
+     payload: nydux.compiler.v1.GpuSample?  # NOTE: lives in infra/v1 in repo; GpuSample proto shown in compiler file for Run-2 bundle compactness — repo path is proto/nydux/infra/v1/gpu.proto
+     , producer: collector, consumers: [ch-sink, anomaly], idempotency: upsert}
+  - {name: nydux.infra.node.health.v1,         class: telemetry, key: "cluster:node",
+     producer: collector, consumers: [infra-svc, failure-pred], idempotency: upsert}
+  - {name: nydux.runtime.serving.metrics.v1,   class: telemetry, key: "cluster:deploy",
+     producer: runtime-analyzer, consumers: [ch-sink, finance-svc], idempotency: upsert}
+  - {name: nydux.runtime.nccl.collective.v1,   class: telemetry, key: "cluster:job",
+     producer: collector, consumers: [runtime-analyzer], idempotency: upsert}
+  - {name: nydux.compiler.kernel.generated.v1, class: business, key: "tenant:family",
+     payload: nydux.compiler.v1.KernelGenerated, producer: compiler-analyzer,
+     consumers: [kernel-registry], idempotency: upsert}
+  - {name: nydux.compiler.kernel.compiled.v1,  class: business, key: "tenant:kernel",
+     payload: nydux.compiler.v1.KernelCompiled, producer: compiler-analyzer,
+     consumers: [kernel-registry], idempotency: upsert}
+  - {name: nydux.compiler.ptx.generated.v1,    class: business, key: "tenant:kernel",
+     payload: nydux.compiler.v1.PtxGenerated, producer: compiler-analyzer,
+     consumers: [kernel-registry], idempotency: upsert}
+  - {name: nydux.compiler.sass.generated.v1,   class: business, key: "tenant:kernel",
+     payload: nydux.compiler.v1.SassGenerated, producer: compiler-analyzer,
+     consumers: [kernel-registry], idempotency: upsert}
+  - {name: nydux.compiler.kernel.scored.v1,    class: business, key: "tenant:kernel",
+     payload: nydux.compiler.v1.KernelScored, producer: compiler-analyzer,
+     consumers: [graph-svc, recommender, ch-sink], idempotency: upsert}
+  - {name: nydux.compiler.regression.detected.v1, class: business, key: "tenant:family",
+     payload: nydux.compiler.v1.RegressionDetected, producer: regression-svc,
+     consumers: [graph-svc, notify-svc], idempotency: upsert}
+  - {name: nydux.finance.cost.calculated.v1,   class: business, key: "tenant:slice",
+     payload: nydux.finance.v1.CostCalculated, producer: finance-svc,
+     consumers: [graph-svc, ts-sink], idempotency: upsert}
+  - {name: nydux.finance.savings.reported.v1,  class: business, key: "tenant", ordering: strict,
+     payload: nydux.finance.v1.SavingsReported, producer: savings-svc,
+     consumers: [ts-sink, audit-svc, notify-svc], idempotency: dedup-table}
+  - {name: nydux.finance.baseline.reanchored.v1, class: business, key: "tenant", ordering: strict,
+     payload: nydux.finance.v1.BaselineReanchored, producer: savings-svc,
+     consumers: [audit-svc], idempotency: dedup-table}
+  - {name: nydux.rec.created.v1,               class: business, key: "tenant:rec",
+     payload: nydux.rec.v1.Recommendation, producer: recommender,
+     consumers: [graph-svc, notify-svc, policy-svc], idempotency: upsert}
+  - {name: nydux.rec.approved.v1,              class: business, key: "tenant:rec", ordering: strict,
+     producer: control-plane-api, consumers: [agent-orchestrator, audit-svc], idempotency: dedup-table}
+  - {name: nydux.rec.applied.v1,               class: business, key: "tenant:rec", ordering: strict,
+     producer: agent-orchestrator, consumers: [bench-runner, audit-svc], idempotency: dedup-table}
+  - {name: nydux.rec.verified.v1,              class: business, key: "tenant:rec",
+     producer: bench-runner, consumers: [graph-svc, savings-svc], idempotency: upsert}
+  - {name: nydux.policy.decision.v1,           class: business, key: "tenant:subject",
+     producer: policy-svc, consumers: [audit-svc, notify-svc], idempotency: upsert}
+  - {name: nydux.governance.toolchain.approved.v1, class: business, key: "tenant", ordering: strict,
+     producer: policy-svc, consumers: [regression-svc, notify-svc], idempotency: dedup-table}
+  - {name: nydux.deploy.triggered.v1,          class: business, key: "tenant:change", ordering: strict,
+     producer: agent-orchestrator, consumers: [audit-svc, twin-svc], idempotency: dedup-table}
+  - {name: nydux.audit.appended.v1,            class: audit, key: "tenant",
+     producer: audit-svc, consumers: [], idempotency: seq-gap-detector}
+  - {name: nydux.agent.task.completed.v1,      class: business, key: "tenant:task",
+     producer: agent-orchestrator, consumers: [finance-svc], idempotency: upsert}
+
+schema_evolution:
+  registry: confluent-compatible
+  compatibility: BACKWARD          # enforced in CI (buf breaking + registry check)
+  breaking_change_procedure: new .v2 topic, dual-publish >= 90 days, consumer-migration dashboard
+example_payload:
+  topic: nydux.compiler.kernel.scored.v1
+  json: |
+    {"kernel_hash":"3f1c...64hex","family_hash":"9ab2...64hex","arch":"sm_90",
+     "score":{"kes":41.7,"components":{"roof":0.38,"occ":0.71,"stall":0.55,"mem":0.34,"tc":0.12,"mix":0.90},
+              "kes_model_version":"kes-2026.07-sm90","confidence":0.93,"profile":"WORKLOAD_PROFILE_DECODE"},
+     "status":"KERNEL_STATUS_SCORED","toolchain_fp":"77aa...64hex"}
+load_estimates:
+  gpu_samples: {fleet_gpus: 100000, cadence_s: 10, msgs_per_s: 10000, bytes_per_msg: 220,
+                daily_gb_precompress: 17.1, ch_stored_gb_daily_postcompress: 2.6}
+  kernel_scored: {new_kernels_per_day_p95: 5000, negligible}

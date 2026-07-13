@@ -1,0 +1,12 @@
+# ECD-013 chaos experiments (chaos-mesh manifests generated from this plan; pre-GA + monthly).
+version: 1
+experiments:
+  - {id: CH-01, inject: pod-kill kernel-registry 1/3 replicas, expect: zero 5xx (PDB+retry), duration: 10m}
+  - {id: CH-02, inject: network-partition policy-svc from control-plane-api 5m, expect: approve returns 503 policy_blocked (fail-closed), no rec applied, recovers<1m}
+  - {id: CH-03, inject: kafka-broker-kill 1/3, expect: producers failover, strict-order topics preserve order, lag recovers<5m}
+  - {id: CH-04, inject: pg-primary-failover, expect: writes resume<30s, outbox no loss, audit seq no gap}
+  - {id: CH-05, inject: gateway-link-blackhole 30m, expect: collector spools, replay on recovery, watermark absorbs, no data loss}
+  - {id: CH-06, inject: clickhouse-replica-kill, expect: reads degrade gracefully, sink retries, parts recover}
+  - {id: CH-07, inject: clock-skew +5s on one DP node, expect: NyduxCollectorClockSkew fires, late-row ratio bounded}
+  - {id: CH-08, inject: llm-provider-500s 100%, expect: agent tasks fail closed with outcome=error, no partial writes, kill-switch untouched}
+verdict_rule: any expectation miss = GA blocker filed as Sev-2 with owning runbook update

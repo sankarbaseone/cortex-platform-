@@ -1,0 +1,34 @@
+# Sloth SLO definitions (RFC-011 J.8; targets from RFC-014 G.3). Generates burn alerts.
+version: prometheus/v1
+service: nydux
+slos:
+  - name: api-availability
+    objective: 99.9
+    sli:
+      events:
+        error_query: 'sum(rate(nydux_api_requests_total{code=~"5.."}[{{.window}}]))'
+        total_query: 'sum(rate(nydux_api_requests_total[{{.window}}]))'
+    alerting:
+      name: NyduxApiSLO
+      page_alert: {labels: {severity: page}}
+      ticket_alert: {labels: {severity: ticket}}
+  - name: ingest-availability
+    objective: 99.95
+    sli:
+      events:
+        error_query: 'sum(rate(nydux_ingest_failures_total[{{.window}}]))'
+        total_query: 'sum(rate(nydux_ingest_batches_total[{{.window}}]))'
+    alerting:
+      name: NyduxIngestSLO
+      page_alert: {labels: {severity: page}}
+      ticket_alert: {labels: {severity: ticket}}
+  - name: first-score-freshness
+    objective: 95.0
+    sli:
+      events:
+        error_query: 'sum(rate(nydux_kes_first_score_latency_seconds_count[{{.window}}])) - sum(rate(nydux_kes_first_score_latency_seconds_bucket{le="300"}[{{.window}}]))'
+        total_query: 'sum(rate(nydux_kes_first_score_latency_seconds_count[{{.window}}]))'
+    alerting:
+      name: NyduxFreshnessSLO
+      page_alert: {labels: {severity: page}}
+      ticket_alert: {labels: {severity: ticket}}

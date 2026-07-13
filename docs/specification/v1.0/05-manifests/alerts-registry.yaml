@@ -1,0 +1,22 @@
+# Synchronized with observability/prometheus/nydux-rules.yaml (CI drift check).
+version: 1
+source_of_truth: artifacts/observability/prometheus/nydux-rules.yaml
+alerts:
+  - {name: NyduxConsumerLagHigh,            severity: page,   runbook: RB-BUS-001}
+  - {name: NyduxDLQNonEmptyBusiness,        severity: page,   runbook: RB-BUS-002}
+  - {name: NyduxDLQTelemetryBurst,          severity: ticket, runbook: RB-BUS-003}
+  - {name: NyduxAuditGapDetected,           severity: page,   sev: 1, runbook: RB-BUS-004}
+  - {name: NyduxOutboxBacklog,              severity: page,   runbook: RB-BUS-005}
+  - {name: NyduxSchemaRegistryDrift,        severity: ticket, runbook: RB-BUS-006}
+  - {name: NyduxApiAvailabilityBurnFast,    severity: page,   runbook: RB-API-001}
+  - {name: NyduxFirstScoreFreshnessSLO,     severity: page,   runbook: RB-KES-001}
+  - {name: NyduxAnalyzerMeasurementOnlySpike, severity: ticket, runbook: RB-KES-002}
+  - {name: NyduxPolicyDecisionSlow,         severity: page,   runbook: RB-POL-001}
+  - {name: NyduxCollectorClockSkew,         severity: ticket, runbook: RB-DP-001}
+  - {name: NyduxGatewaySpoolFilling,        severity: page,   runbook: RB-DP-002}
+  - {name: NyduxEgressPrivacyReject,        severity: page,   runbook: RB-DP-003}
+  - {name: NyduxPgDeadTuples,               severity: ticket, runbook: RB-DB-001}
+  - {name: NyduxChPartsHigh,                severity: page,   runbook: RB-DB-002}
+  - {name: NyduxTimescaleJobFailed,         severity: ticket, runbook: RB-DB-003}
+  - {name: NyduxAgentSchemaRejectSpike,     severity: ticket, runbook: RB-AG-001}
+  - {name: NyduxAgentJudgeFailLoop,         severity: ticket, runbook: RB-AG-002}

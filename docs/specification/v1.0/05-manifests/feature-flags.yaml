@@ -1,0 +1,14 @@
+# Canonical flag registry (OpenFeature; flagd source). Flags default-off (RFC-011 J.6).
+version: 1
+flags:
+  - {key: api.readonly,                default: false, kill_switch: true,  desc: "DR write-freeze (RB-DR-001)"}
+  - {key: agents.enabled,              default: false, kill_switch: true,  desc: "global agent kill-switch (RFC-008 H.6)"}
+  - {key: backend.amd,                 default: false, desc: "AMD ROCm collectors (OQ-07)"}
+  - {key: graph.backend,               default: "age", type: string, values: [age, janus], desc: "OQ-02 migration flag"}
+  - {key: storage.clickhouse.managed,  default: false, desc: "managed CH alternative (RFC-001 A.10)"}
+  - {key: recs.auto_verify,            default: false, desc: "auto-run verify job on apply"}
+  - {key: kes.decode_profile_weights,  default: true,  desc: "decode weight redistribution (ECD-003 §3.5)"}
+  - {key: savings.dual_report_ui,      default: true,  desc: "show twin+trailing side by side"}
+  - {key: gate.static_prescreen,       default: true,  desc: "CRI static classifier pre-screen (F-RG-01)"}
+  - {key: ui.graph_explorer_ws,        default: true,  desc: "WS transport for graph screen (OQ-15)"}
+  - {key: contract.seed_migrations,    default: false, env_locked: prod=false, desc: "guard for 0002_seed_dev"}

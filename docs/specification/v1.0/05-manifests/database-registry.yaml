@@ -1,0 +1,16 @@
+# Store/table catalog — generated view of the shipped migrations (kept in sync by tools/genmanifests db-gen; this is the seed).
+version: 1
+stores:
+  postgres:
+    owner_map: {tenants: tenant-svc, clusters: tenant-svc, users: tenant-svc, roles: tenant-svc, user_roles: tenant-svc, api_keys: auth-svc, toolchains: kernel-registry, kernels: kernel-registry, recommendations: recommender, policies: policy-svc, audit_entries: audit-svc, savings_baselines: savings-svc, jobs: control-plane-api, outbox: per-service}
+    rls: FORCE on all tenant tables, policy t_iso via nydux.tenant GUC
+    migrations: services/<owner>/migrations (bootstrap 0001 shipped)
+  timescale:
+    tables: {cost_slices: {chunk: 1d, compress_after: 7d, retain: 25mo, segmentby: [tenant_id, team_id]}, savings_ledger: {chunk: 30d, unique: [tenant_id, period, time]}}
+    caggs: {cost_daily_by_team: 6h-lag hourly, unit_cost_daily: 6h-lag hourly}
+  clickhouse:
+    tables: {gpu_samples: {order: [tenant, cluster, gpu_uuid, ts], ttl: [cold@14d, delete@90d]}, gpu_samples_1m: {retain: 25mo}, kernel_events: {retain: 25mo}, serving_metrics: {retain: 90d}}
+    row_policies: per-tenant, managed by tenant-svc
+  graph: {backend: pg-age (flag graph.backend), mvs: [mv_reg_blast, mv_cost_to_kernel, mv_top_waste_kernels], refresh: hourly worker}
+  blob: {ir_artifacts: in-tenant only, lifecycle: 12mo->cold, 24mo delete}
+backup: {pg_ts: walg RPO<=5min + nightly base, ch: BACKUP TO S3 nightly incremental, drill: monthly restore <1h}

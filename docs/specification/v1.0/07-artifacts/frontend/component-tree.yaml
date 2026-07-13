@@ -1,0 +1,59 @@
+# ECD-009 component tree — canonical inventory. New components require a PR touching this file.
+version: 1
+shared:
+  AppShell: {children: [SideNav, TopBar, NotificationBell, TenantSwitcher], state: session-only}
+  DataTable: {props: [columns, queryKey, rsqlWhitelist, onRowClick], virtualized: true, a11y: table-with-caption}
+  KesRadar: {lib: visx, props: [components], alt: table}
+  RooflinePlot: {lib: visx, props: [ridge, points], alt: table}
+  CriHeatmap: {lib: visx, props: [matrix], alt: table}
+  EvidenceViewer: {props: [refs], renders: [COUNTER, IR_SPAN, RUN, GRAPH]}
+  AuditChainBrowser: {props: [fromSeq], verifyButton: "POST /audit/verify"}
+  FreshnessWatermark: {props: [asOf]}
+  ProblemBanner: {props: [problem], maps: "problem+json to toast or inline"}
+  ApprovalDialog: {props: [rec], requiredField: "rationale minLength 4", sod: "approve hidden for author"}
+  CoSignWizard: {steps: [legal-text, customer-sign, nydux-sign, confirm], auditLinked: true}
+features:
+  dashboard:
+    panels: [KesDistribution, CriTrend, TopWasteKernels, UtilVsCost, SavingsToDate]
+    live: "SSE /dashboard"
+  kernels:
+    list: "DataTable with rsql whitelist [kes, arch, status, family_hash]"
+    detail: [KesRadar, RooflinePlot, "IrTabs (in-tenant only)", SimilarPanel, RecPanel]
+  compilers:
+    tabs: [ToolchainRegistry, RegressionMatrix, PreUpgradeRisk, CiGateSnippet]
+  graph:
+    lib: cytoscape
+    transport: "WS /v1/graph/ws"
+    guidedTraversal: true
+    savedViews: true
+  cost:
+    dims: [team, model, workload, kernel, token]
+    charts: [StackedSeries, TreeMap, UnitEconomics]
+    export: csv
+  savings:
+    panels: ["PeriodLedger dual-report", BaselineTimeline, "ReanchorFlow via CoSignWizard"]
+  simulate:
+    builder: "ScenarioForm with mutation kinds per OpenAPI ScenarioSet"
+    results: [ParetoChart, CompareTable, LowSupportBadge]
+    promote: "POST /capacity/plans"
+  recs:
+    inbox: "DataTable sorted by score desc"
+    detail: [EvidenceViewer, GainDist, RiskScore, ApprovalDialog, AppliedTimeline, RollbackButton]
+  governance:
+    tabs: ["PolicyEditor with rego lint and fixture runner", DecisionLog, AuditChainBrowser, ToolchainQueue, EvidenceExportWizard]
+  agents:
+    tabs: ["AdvisorChat with citation chips", "TaskList with transcript timeline", "KillSwitch (admin)"]
+  reports:
+    gallery: [ExecMonthlySavings, CriReport]
+    schedule: cron-picker
+    format: [pdf, csv]
+  admin:
+    tabs: [Users, RolesMatrix, "ApiKeys secret-shown-once", "Clusters with helm generator", Settings]
+  notifications:
+    matrix: "event-type by route (email, slack, webhook)"
+states:
+  loading: skeleton per panel
+  error: "ProblemBanner with retry"
+  empty: per-screen onboarding CTA
+keyboard: "full tab order, ? shortcut sheet, table j/k navigation"
+a11y: "axe CI gate, AA contrast"

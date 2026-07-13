@@ -1,0 +1,94 @@
+{
+ "title": "NYDUX / Agents",
+ "uid": "nydux-agents",
+ "schemaVersion": 39,
+ "tags": [
+  "nydux",
+  "generated"
+ ],
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "tenant",
+    "type": "query",
+    "datasource": "Prometheus",
+    "query": "label_values(nydux_cri_value, tenant)",
+    "refresh": 2
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Tasks by kind/state per hour",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (kind, state) (increase(nydux_agent_tasks_total[1h]))",
+     "legendFormat": "{{kind}}/{{state}}"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Tokens per hour by direction",
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (direction) (increase(nydux_agent_tokens_total[1h]))",
+     "legendFormat": "{{direction}}"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Judge fail ratio 15m",
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "increase(nydux_agent_judge_fail_total[15m]) / clamp_min(increase(nydux_agent_tasks_total[15m]),1)",
+     "legendFormat": "ratio"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Tool schema rejects/15m",
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "expr": "sum by (tool) (increase(nydux_agent_tool_schema_reject_total[15m]))",
+     "legendFormat": "{{tool}}"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+version: 1
+conventions: {grpc: 8443, ops: 9090, all services identical (chart values)}
+external: {api_gateway: 443 -> control-plane-api 8443, web: 443 static CDN, ingest: 443 -> edge-gateway relay (DP-side)}
+dev_compose: {pg: 5432, timescale: 5433, clickhouse: [8123, 9000], redpanda: 9092, redis: 6379, minio: [9002, 9001]}
+reserved_nodeports: none (LB + mesh only)

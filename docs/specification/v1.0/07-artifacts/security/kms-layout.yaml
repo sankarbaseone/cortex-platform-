@@ -1,0 +1,22 @@
+# ECD-012 §4 — key hierarchy and rotation (implements RFC-009 I.4 exactly).
+version: 1
+root:
+  provider: aws-kms   # gcp-kms/azure-kv in respective profiles; same hierarchy
+  cmk_alias: alias/nydux-root
+  rotation: automatic-annual
+per_tenant:
+  dek_alias_pattern: alias/nydux-tenant-{tenant_id}
+  scheme: envelope   # DEK wraps data keys for blob + backup + column-level (api_keys.hash pepper)
+  rotation: 90d re-wrap (lazy on read + background sweep)
+signing_keys:
+  approval_tokens: {alg: Ed25519, storage: kms-asymmetric, rotation: 30d, kid_header: true, overlap: 48h}
+  cosign_release: {alg: ECDSA-P256, storage: github-oidc-keyless (Fulcio), transparency: rekor}
+secrets_inventory:   # every secret, its store, its consumer, rotation
+  - {name: "pg-dsn-{service}",        store: eso/aws-sm, consumer: each Go service, rotation: 30d}
+  - {name: "ch-dsn-sinks",            store: eso/aws-sm, consumer: [ch-sink],        rotation: 30d}
+  - {name: "kafka-scram-{service}",   store: eso/aws-sm, consumer: producers/consumers, rotation: 30d}
+  - {name: "oidc-client-secret",      store: eso/aws-sm, consumer: [auth-svc],       rotation: 90d}
+  - {name: "llm-provider-key",        store: eso/aws-sm, consumer: [agent-orchestrator], rotation: 30d, budget_alarm: true}
+  - {name: "slack-webhook-{tenant}",  store: eso/aws-sm, consumer: [notify-svc],     rotation: on-demand}
+prohibited: [secrets-in-values-files (CI grep gate), secrets-in-env-dumps (Redacted() enforced), long-lived-api-keys-without-expiry]
+compliance_mapping: {SOC2: [CC6.1, CC6.6], ISO27001: [A.8.24], NIST80053: [SC-12, SC-28]}

@@ -1,0 +1,35 @@
+# Complete values for the canonical NYDUX service chart. Every service overrides
+# ONLY: name, image, grpcPort, env, hpa.signalQuery, resources (from service.yaml).
+name: kernel-registry
+image:
+  repository: ghcr.io/nydux/kernel-registry
+  tag: ""            # pinned by digest at release; tag for dev only
+  digest: ""         # e.g. sha256:...  (release pipeline sets this)
+  pullPolicy: IfNotPresent
+replicaCount: 3
+grpcPort: 8443
+opsPort: 9090
+env: []              # list of {name, value} or {name, valueFrom.secretKeyRef}
+envFromSecret: ""    # ESO-materialized secret name
+resources:
+  requests: {cpu: 250m, memory: 512Mi}
+  limits:   {cpu: "1",  memory: 512Mi}   # requests==limits for memory (RFC-014 G.0)
+pdb: {minAvailable: 2}
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 12
+  targetCPUUtilizationPercent: 70
+topologySpread: true
+serviceMonitor: {enabled: true, interval: 30s}
+networkPolicy:
+  enabled: true
+  egressAllow: []    # list of {podSelector|namespaceSelector, ports}; default-deny otherwise
+mesh: {inject: true} # linkerd.io/inject: enabled
+terminationGracePeriodSeconds: 30
+securityContext:
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  seccompProfile: {type: RuntimeDefault}
+  capabilities: {drop: ["ALL"]}

@@ -1,0 +1,9 @@
+version: 1
+environments:
+  dev:     {kind: kind+compose, seed: true, flags_source: local file, secrets: dotenv-dev}
+  staging: {region: ap-south-1, profile: saas, seed: fixtures, canary_target: true, soak_env: true}
+  prod:    {region: ap-south-1, profile: saas, dr_pair: dr, canary: 5%->25%->100% gated by Sloth burn, freeze_flag: api.readonly}
+  dr:      {region: ap-southeast-1, mode: pilot-light, promote_runbook: RB-DR-001, monthly_drill: true}
+  dedicated-template: {profile: dedicated, per-customer VPC, same charts, values overlay only}
+  airgap-template: {profile: airgap, registry mirror + offline flags file, no LLM egress (advisor disabled)}
+promotion: dev -> staging (auto on main green) -> prod (release train, manual approve, canary)

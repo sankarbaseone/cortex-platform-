@@ -1,0 +1,24 @@
+version: 1
+template_sections: [Symptoms, Dashboards, "Diagnosis tree", Mitigation, Post-actions]
+runbooks:
+  - {id: RB-BUS-001, alert: NyduxConsumerLagHigh,        owner: platform, status: body-required}
+  - {id: RB-BUS-002, alert: NyduxDLQNonEmptyBusiness,    owner: platform, status: body-required}
+  - {id: RB-BUS-003, alert: NyduxDLQTelemetryBurst,      owner: platform, status: body-required}
+  - {id: RB-BUS-004, alert: NyduxAuditGapDetected,       owner: platform, status: complete}
+  - {id: RB-BUS-005, alert: NyduxOutboxBacklog,          owner: platform, status: body-required}
+  - {id: RB-BUS-006, alert: NyduxSchemaRegistryDrift,    owner: platform, status: body-required}
+  - {id: RB-API-001, alert: NyduxApiAvailabilityBurnFast, owner: platform, status: body-required}
+  - {id: RB-KES-001, alert: NyduxFirstScoreFreshnessSLO, owner: compiler, status: body-required}
+  - {id: RB-KES-002, alert: NyduxAnalyzerMeasurementOnlySpike, owner: compiler, status: body-required}
+  - {id: RB-POL-001, alert: NyduxPolicyDecisionSlow,     owner: platform, status: body-required}
+  - {id: RB-DP-001,  alert: NyduxCollectorClockSkew,     owner: dataplane, status: body-required}
+  - {id: RB-DP-002,  alert: NyduxGatewaySpoolFilling,    owner: dataplane, status: body-required}
+  - {id: RB-DP-003,  alert: NyduxEgressPrivacyReject,    owner: dataplane, status: body-required}
+  - {id: RB-DB-001,  alert: NyduxPgDeadTuples,           owner: platform, status: body-required}
+  - {id: RB-DB-002,  alert: NyduxChPartsHigh,            owner: platform, status: body-required}
+  - {id: RB-DB-003,  alert: NyduxTimescaleJobFailed,     owner: platform, status: body-required}
+  - {id: RB-AG-001,  alert: NyduxAgentSchemaRejectSpike, owner: agents,   status: body-required}
+  - {id: RB-AG-002,  alert: NyduxAgentJudgeFailLoop,     owner: agents,   status: body-required}
+  - {id: RB-DR-001,  alert: manual, purpose: DR region promote (RFC-001 A.7), owner: platform, status: body-required}
+  - {id: RB-SEC-001, alert: manual, purpose: security incident process (RFC-009 I.12), owner: security, status: body-required}
+ci_rule: alert-without-runbook-entry fails build (RFC-011 J.9); body-required entries must be complete before GA.

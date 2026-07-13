@@ -1,0 +1,26 @@
+# Superset view of kafka/topics.yaml adding payload proto file + fixture path per event (CI: fixture required).
+version: 1
+source_of_truth: [artifacts/kafka/topics.yaml, proto/nydux/**/v1/*.proto]
+events:
+  - {type: infra.gpu.sample,            topic: nydux.infra.gpu.sample.v1,            proto: infra/v1/gpu.proto#GpuSample,            fixture: proto/testdata/gpu_sample.json}
+  - {type: infra.node.health,           topic: nydux.infra.node.health.v1,           proto: infra/v1/gpu.proto#NodeHealth,           fixture: proto/testdata/node_health.json}
+  - {type: runtime.serving.metrics,     topic: nydux.runtime.serving.metrics.v1,     proto: runtime/v1/serving.proto#ServingMetrics, fixture: proto/testdata/serving_metrics.json}
+  - {type: runtime.nccl.collective,     topic: nydux.runtime.nccl.collective.v1,     proto: runtime/v1/serving.proto#NcclCollective, fixture: proto/testdata/nccl.json}
+  - {type: compiler.kernel.generated,   topic: nydux.compiler.kernel.generated.v1,   proto: compiler/v1/kernel.proto#KernelGenerated, fixture: proto/testdata/kernel_generated.json}
+  - {type: compiler.kernel.compiled,    topic: nydux.compiler.kernel.compiled.v1,    proto: compiler/v1/kernel.proto#KernelCompiled, fixture: proto/testdata/kernel_compiled.json}
+  - {type: compiler.ptx.generated,      topic: nydux.compiler.ptx.generated.v1,      proto: compiler/v1/kernel.proto#PtxGenerated,   fixture: proto/testdata/ptx.json}
+  - {type: compiler.sass.generated,     topic: nydux.compiler.sass.generated.v1,     proto: compiler/v1/kernel.proto#SassGenerated,  fixture: proto/testdata/sass.json}
+  - {type: compiler.kernel.scored,      topic: nydux.compiler.kernel.scored.v1,      proto: compiler/v1/kernel.proto#KernelScored,   fixture: proto/testdata/kernel_scored.json}
+  - {type: compiler.regression.detected, topic: nydux.compiler.regression.detected.v1, proto: compiler/v1/kernel.proto#RegressionDetected, fixture: proto/testdata/regression.json}
+  - {type: finance.cost.calculated,     topic: nydux.finance.cost.calculated.v1,     proto: finance/v1/cost.proto#CostCalculated,    fixture: proto/testdata/cost.json}
+  - {type: finance.savings.reported,    topic: nydux.finance.savings.reported.v1,    proto: finance/v1/cost.proto#SavingsReported,   fixture: proto/testdata/savings.json}
+  - {type: finance.baseline.reanchored, topic: nydux.finance.baseline.reanchored.v1, proto: finance/v1/cost.proto#BaselineReanchored, fixture: proto/testdata/baseline.json}
+  - {type: rec.created,                 topic: nydux.rec.created.v1,                 proto: rec/v1/recommendation.proto#Recommendation, fixture: proto/testdata/rec_created.json}
+  - {type: rec.approved,                topic: nydux.rec.approved.v1,                proto: rec/v1/recommendation.proto#Recommendation, fixture: proto/testdata/rec_approved.json}
+  - {type: rec.applied,                 topic: nydux.rec.applied.v1,                 proto: rec/v1/recommendation.proto#Recommendation, fixture: proto/testdata/rec_applied.json}
+  - {type: rec.verified,                topic: nydux.rec.verified.v1,                proto: rec/v1/recommendation.proto#Recommendation, fixture: proto/testdata/rec_verified.json}
+  - {type: policy.decision,             topic: nydux.policy.decision.v1,             proto: policy/v1/policy.proto#PolicyDecisionEvent, fixture: proto/testdata/policy_decision.json}
+  - {type: governance.toolchain.approved, topic: nydux.governance.toolchain.approved.v1, proto: compiler/v1/kernel.proto#ToolchainRef, fixture: proto/testdata/toolchain_approved.json}
+  - {type: deploy.triggered,            topic: nydux.deploy.triggered.v1,            proto: agent/v1/agent.proto#ToolCall,           fixture: proto/testdata/deploy_triggered.json}
+  - {type: audit.appended,              topic: nydux.audit.appended.v1,              proto: audit/v1/audit.proto#AuditAppended,      fixture: proto/testdata/audit_appended.json}
+  - {type: agent.task.completed,        topic: nydux.agent.task.completed.v1,        proto: agent/v1/agent.proto#TaskCompleted,      fixture: proto/testdata/task_completed.json}

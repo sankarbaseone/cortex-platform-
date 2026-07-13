@@ -1,0 +1,39 @@
+// proto/nydux/common/v1/envelope.proto
+// Wire-truth event envelope. FROZEN per RFC-005 B.2 — additive changes only.
+syntax = "proto3";
+
+package nydux.common.v1;
+
+option go_package = "github.com/nydux/platform/api/nydux/common/v1;commonv1";
+
+import "buf/validate/validate.proto";
+
+message EventEnvelope {
+  // UUIDv7 — idempotency key for all consumers.
+  string event_id = 1 [(buf.validate.field).string.uuid = true];
+  string tenant_id = 2 [(buf.validate.field).string.uuid = true];
+  // Empty string for control-plane-origin events.
+  string cluster_id = 3;
+  // Catalog type, e.g. "compiler.kernel.scored". Must match a row in event-registry.yaml.
+  string type = 4 [(buf.validate.field).string = {min_len: 3, max_len: 128}];
+  // Payload schema major version.
+  uint32 schema_version = 5 [(buf.validate.field).uint32 = {gte: 1}];
+  // Occurrence time, device clock (NTP-disciplined), epoch nanoseconds.
+  int64 event_time_ns = 6 [(buf.validate.field).int64 = {gt: 0}];
+  int64 ingest_time_ns = 7;
+  // W3C traceparent value.
+  string trace_id = 8;
+  // "service@semver", e.g. "kernel-registry@1.4.2".
+  string producer = 9 [(buf.validate.field).string = {min_len: 1, max_len: 64}];
+  // Serialized payload message; concrete type given by `type` + schema registry.
+  bytes payload = 10;
+  // Kafka partition key as documented per event in event-registry.yaml.
+  string partition_key = 11 [(buf.validate.field).string = {min_len: 1, max_len: 256}];
+}
+
+// Shared error detail attached to gRPC status (RFC-006 F.5).
+message ErrorInfo {
+  string reason = 1;   // catalog code, e.g. "gate_failed"
+  string domain = 2;   // always "nydux.ai"
+  map<string, string> metadata = 3; // must include "trace_id"
+}

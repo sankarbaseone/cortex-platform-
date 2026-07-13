@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata: {name: {{ .Values.name }}, labels: {{- include "nydux.labels" . | nindent 4 }}}
+spec:
+  selector: {app.kubernetes.io/name: {{ .Values.name }}}
+  ports:
+    - {name: grpc, port: {{ .Values.grpcPort }}, targetPort: grpc}
+    - {name: ops,  port: {{ .Values.opsPort }},  targetPort: ops}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: {{ .Values.name }}}
