@@ -1,0 +1,33 @@
+# Go
+/bin/
+*.test
+*.out
+
+# Rust
+/target/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+dist/
+.turbo/
+
+# Generated
+gen/
+
+# Local env / secrets
+.env
+.env.*
+*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# mise
+.mise.local.toml

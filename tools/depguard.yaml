@@ -1,0 +1,8 @@
+rules:
+  no-api-from-services: {deny: ["nydux/platform/services/control-plane-api"], from: "nydux/platform/services/*"}
+  hexagonal: {deny: ["**/internal/adapters/**"], from: "**/internal/domain/**"}
+  layer-isolation:
+    - {deny: ["proto/nydux/finance"], from: "services/{kernel-registry,regression-svc,recommender}/**"}
+    - {deny: ["proto/nydux/compiler"], from: "services/{finance-svc,savings-svc}/**"}
+  graph-single-writer: {deny: ["**/adapters/pg/graph*"], from: "services/!(graph-svc)/**"}
+  audit-single-writer: {deny: ["**/auditchain*"], from: "services/!(audit-svc)/**"}

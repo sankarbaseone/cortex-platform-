@@ -1,0 +1,36 @@
+version: 1
+org: nydux
+repos:
+  platform:
+    languages: {go: 1.23.4, rust: 1.80.1, python: 3.12.6, typescript: 5.5.4}
+    build_entrypoint: make
+    units:  # every buildable unit; kind: service|analyzer|agentpkg|web|lib|cli|operator
+      - {name: control-plane-api, kind: service, path: services/control-plane-api, lang: go, rfc: [RFC-014]}
+      - {name: kernel-registry, kind: service, path: services/kernel-registry, lang: go, rfc: [RFC-014, RFC-002]}
+      - {name: regression-svc, kind: service, path: services/regression-svc, lang: go, rfc: [RFC-002]}
+      - {name: bench-runner, kind: service, path: services/bench-runner, lang: go, rfc: [RFC-014]}
+      - {name: recommender, kind: service, path: services/recommender, lang: go, rfc: [RFC-002, RFC-003]}
+      - {name: graph-svc, kind: service, path: services/graph-svc, lang: go, rfc: [RFC-003]}
+      - {name: finance-svc, kind: service, path: services/finance-svc, lang: go, rfc: [RFC-007]}
+      - {name: savings-svc, kind: service, path: services/savings-svc, lang: go, rfc: [RFC-004]}
+      - {name: twin-svc, kind: service, path: services/twin-svc, lang: go, rfc: [RFC-004]}
+      - {name: policy-svc, kind: service, path: services/policy-svc, lang: go, rfc: [RFC-009]}
+      - {name: audit-svc, kind: service, path: services/audit-svc, lang: go, rfc: [RFC-009]}
+      - {name: notify-svc, kind: service, path: services/notify-svc, lang: go, rfc: [RFC-014]}
+      - {name: tenant-svc, kind: service, path: services/tenant-svc, lang: go, rfc: [RFC-009]}
+      - {name: auth-svc, kind: service, path: services/auth-svc, lang: go, rfc: [RFC-009]}
+      - {name: ch-sink, kind: service, path: services/ch-sink, lang: go, rfc: [RFC-005, RFC-007]}
+      - {name: ts-sink, kind: service, path: services/ts-sink, lang: go, rfc: [RFC-005, RFC-007]}
+      - {name: collector, kind: analyzer, path: analyzers/collector, lang: rust, rfc: [RFC-005, RFC-014]}
+      - {name: edge-gateway, kind: analyzer, path: analyzers/edge-gateway, lang: rust, rfc: [RFC-003, RFC-014]}
+      - {name: compiler-analyzer, kind: analyzer, path: analyzers/compiler-analyzer, lang: rust, rfc: [RFC-002]}
+      - {name: runtime-analyzer, kind: analyzer, path: analyzers/runtime-analyzer, lang: rust, rfc: [RFC-014]}
+      - {name: agents, kind: agentpkg, path: agents, lang: python, rfc: [RFC-008]}
+      - {name: web-app, kind: web, path: web/app, lang: typescript, rfc: [RFC-010]}
+      - {name: web-bff, kind: web, path: web/bff, lang: typescript, rfc: [RFC-010]}
+      - {name: nydux-cli, kind: cli, path: cli/nydux, lang: go, rfc: [RFC-006]}
+      - {name: operator, kind: operator, path: deploy/operator, lang: go, rfc: [RFC-001]}
+    protected_paths: [proto/, services/audit-svc/, services/policy-svc/, analyzers/edge-gateway/, tools/depguard.yaml]
+  sdk-python: {path: ../sdk-python, lang: python, rfc: [RFC-006]}
+  helm-charts: {path: ../helm-charts, rfc: [RFC-001, RFC-011]}
+  docs: {path: ../docs}

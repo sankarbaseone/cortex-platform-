@@ -1,0 +1,12 @@
+.PHONY: bootstrap
+bootstrap:
+	@echo "==> mise install (Go/Rust/Python/Node per .tool-versions)"
+	mise install
+	@echo "==> buf"
+	command -v buf >/dev/null 2>&1 || mise use -g -y buf@1.42.0
+	@echo "==> golangci-lint"
+	command -v golangci-lint >/dev/null 2>&1 || mise use -g -y golangci-lint@latest
+	@echo "==> uv"
+	command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+	@echo "==> pnpm (web/)"
+	@if [ -f web/app/package.json ]; then pnpm -C web/app install; else echo "    no web/app package.json yet - skipping"; fi
