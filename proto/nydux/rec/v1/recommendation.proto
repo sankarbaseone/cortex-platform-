@@ -1,0 +1,76 @@
+// proto/nydux/rec/v1/recommendation.proto
+syntax = "proto3";
+package nydux.rec.v1;
+option go_package = "github.com/nydux/platform/api/nydux/rec/v1;recv1";
+import "buf/validate/validate.proto";
+
+enum RecState {
+  REC_STATE_UNSPECIFIED = 0;
+  REC_STATE_CREATED = 1;
+  REC_STATE_APPROVED = 2;
+  REC_STATE_REJECTED = 3;
+  REC_STATE_APPLIED = 4;
+  REC_STATE_VERIFIED = 5;
+  REC_STATE_FAILED = 6;
+  REC_STATE_ROLLED_BACK = 7;
+}
+
+enum EvidenceKind {
+  EVIDENCE_KIND_UNSPECIFIED = 0;
+  EVIDENCE_KIND_COUNTER = 1;
+  EVIDENCE_KIND_IR_SPAN = 2;
+  EVIDENCE_KIND_RUN = 3;
+  EVIDENCE_KIND_GRAPH = 4;
+}
+
+message EvidenceRef {
+  EvidenceKind kind = 1;
+  string id = 2;
+  string locator = 3; // e.g. blob URI (in-tenant), graph query id, run id
+}
+
+message Evidence { repeated EvidenceRef refs = 1 [(buf.validate.field).repeated.min_items = 1]; }
+
+message Recommendation {
+  string rec_id = 1 [(buf.validate.field).string.uuid = true];
+  string kernel_hash = 2 [(buf.validate.field).string = {len: 64}];
+  // Closed pattern set per ECD-003 §3.3.
+  string pattern_id = 3 [(buf.validate.field).string = {in: [
+    "unfused_elementwise","missing_flashattn","reg_pressure","noncoalesced",
+    "fp32_gemm_tc","smallbatch_gemm","launch_storm","triton_tile",
+    "cublas_fallback","comm_overlap_gap","toolchain_upgrade","toolchain_holdback"]}];
+  double gain_p50 = 4;
+  double gain_p90 = 5;
+  double confidence = 6 [(buf.validate.field).double = {gte: 0, lte: 1}];
+  string effort = 7 [(buf.validate.field).string = {in: ["trivial","low","medium","high"]}];
+  double risk = 8 [(buf.validate.field).double.gte = 0];
+  RecState state = 9;
+  Evidence evidence = 10;
+  string patch_uri = 11; // in-tenant blob; empty when human-instructions-only
+}
+
+message DecideRequest {
+  string rec_id = 1 [(buf.validate.field).string.uuid = true];
+  bool approve = 2;
+  string rationale = 3 [(buf.validate.field).string.min_len = 4]; // required either way (RFC-010 K.3 item 8)
+}
+
+message DecideResponse {
+  Recommendation rec = 1;
+  string approval_token = 2; // signed, 24h exp; empty on reject (RFC-008 H.10)
+}
+
+message ApplyRequest {
+  string rec_id = 1;
+  string approval_token = 2 [(buf.validate.field).string.min_len = 16];
+}
+
+message ApplyResponse {
+  string change_ref = 1;
+  string rollback_token = 2; // mandatory (RFC-008 H.6 rule 4)
+}
+
+service RecommendationService {
+  rpc Decide(DecideRequest) returns (DecideResponse);
+  rpc Apply(ApplyRequest) returns (ApplyResponse);
+}

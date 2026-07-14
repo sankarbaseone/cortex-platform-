@@ -1,0 +1,30 @@
+syntax = "proto3";
+package nydux.agent.v1;
+option go_package = "github.com/nydux/platform/api/nydux/agent/v1;agentv1";
+import "buf/validate/validate.proto";
+
+message Task {
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+  string kind = 2 [(buf.validate.field).string = {in: [
+    "compiler_opt","kernel_analysis","cost_opt","capacity","governance",
+    "failure_pred","rca","twin_calib","advisor","decision"]}];
+  string state = 3 [(buf.validate.field).string = {in: [
+    "created","planning","executing","awaiting_approval","done","failed"]}];
+  uint64 tokens_in = 4;
+  uint64 tokens_out = 5;
+  int64 budget_usd_micros = 6;
+  string transcript_uri = 7;
+}
+
+message ToolCall {
+  string task_id = 1;
+  string tool = 2;
+  bytes args_json = 3;
+  bytes args_hash = 4 [(buf.validate.field).bytes.len = 32]; // BLAKE3, audited
+  bool write_class = 5;
+}
+
+message TaskCompleted {  // payload for nydux.agent.task.completed.v1
+  Task task = 1;
+  string outcome = 2 [(buf.validate.field).string = {in: ["success","judge_reject","budget_exceeded","killed","error"]}];
+}

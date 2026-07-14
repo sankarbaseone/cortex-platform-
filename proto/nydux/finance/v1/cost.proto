@@ -1,0 +1,60 @@
+// proto/nydux/finance/v1/cost.proto
+syntax = "proto3";
+package nydux.finance.v1;
+option go_package = "github.com/nydux/platform/api/nydux/finance/v1;financev1";
+import "buf/validate/validate.proto";
+
+message CostCalculated {
+  string slice_id = 1 [(buf.validate.field).string.uuid = true];
+  int64 usd_micros = 2 [(buf.validate.field).int64.gte = 0];
+  string basis = 3 [(buf.validate.field).string = {in: ["ondemand","commit","spot","amortized"]}];
+  int64 window_start_ns = 4;
+  int64 window_end_ns = 5;
+  string team_id = 6;
+  string model_id = 7;
+  string workload_id = 8;
+  string cluster_id = 9;
+}
+
+message SavingsReported {
+  string period = 1 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}$"]; // YYYY-MM
+  int64 twin_usd_micros = 2;      // may be negative (honesty rule, RFC-004 4.3)
+  int64 trailing_usd_micros = 3;
+  int64 contractual_usd_micros = 4; // = min(twin, trailing), floored per line item
+  string baseline_id = 5 [(buf.validate.field).string.uuid = true];
+  int32 baseline_version = 6;
+  string method_doc_uri = 7;      // replay-bundle reference
+}
+
+message BaselineReanchored {
+  string baseline_id = 1;
+  int32 new_version = 2;
+  string reason = 3 [(buf.validate.field).string.min_len = 8];
+  string cosign_customer_sig = 4;
+  string cosign_nydux_sig = 5;
+}
+
+message GetAttributionRequest {
+  string dim = 1 [(buf.validate.field).string = {in: ["team","model","workload","kernel","token"]}];
+  int64 from_ns = 2;
+  int64 to_ns = 3;
+  int32 limit = 4 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
+  string cursor = 5;
+}
+
+message AttributionRow {
+  string key = 1;               // team_id | model_id | workload_id | kernel_hash | "token"
+  int64 usd_micros = 2;
+  double gpu_hours = 3;
+  int64 tokens = 4;
+}
+
+message GetAttributionResponse {
+  repeated AttributionRow items = 1;
+  string next_cursor = 2;
+  double completeness = 3 [(buf.validate.field).double = {gte: 0, lte: 1}]; // parked-slice awareness
+}
+
+service FinanceService {
+  rpc GetAttribution(GetAttributionRequest) returns (GetAttributionResponse);
+}

@@ -1,0 +1,37 @@
+syntax = "proto3";
+package nydux.graph.v1;
+option go_package = "github.com/nydux/platform/api/nydux/graph/v1;graphv1";
+import "buf/validate/validate.proto";
+
+message Node {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string label = 2 [(buf.validate.field).string = {in: [
+    "KernelFamily","KernelVariant","Toolchain","Model","Workload","Cluster",
+    "Node","Gpu","Deployment","Team","CostSlice","Recommendation","Incident","Policy"]}];
+  map<string, string> props = 3;  // allowlisted per label (RFC-003 D.3)
+}
+
+message Edge {
+  string from_id = 1;
+  string to_id = 2;
+  string rel = 3 [(buf.validate.field).string = {in: [
+    "VARIANT_OF","COMPILED_WITH","RUNS_ON","PART_OF","OWNED_BY","COSTS",
+    "REGRESSED_BY","RECOMMENDED_FOR","RESULTED_IN","VIOLATES","CAUSED"]}];
+  map<string, string> props = 4;
+}
+
+message NamedQueryRequest {
+  string query = 1 [(buf.validate.field).string = {in: ["reg_blast","cost_to_kernel","top_waste","similar_kernels","incident_causes"]}];
+  map<string, string> params = 2;
+}
+
+message NamedQueryResponse {
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
+  int64 freshness_watermark_ns = 3;
+  bool from_materialized_view = 4;
+}
+
+service GraphQueryService {
+  rpc NamedQuery(NamedQueryRequest) returns (NamedQueryResponse);
+}
