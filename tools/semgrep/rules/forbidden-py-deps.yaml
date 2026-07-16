@@ -1,0 +1,20 @@
+# Enforces dependencies.yaml's `forbidden` list for Python (pandas-in-services).
+# agents/ (RFC-008) is the only Python in the production path (services/ is
+# Go per ECD-001); pandas' memory/latency profile doesn't fit an inline agent
+# tool call. Notebooks/evals directories are intentionally not scoped here.
+rules:
+  - id: py-no-pandas-in-services
+    languages: [python]
+    severity: ERROR
+    message: >
+      pandas is on dependencies.yaml's forbidden list for service/agent code.
+      Use nydux_common's typed data structures instead.
+    paths:
+      include:
+        - "agents/**"
+        - "services/**"
+    patterns:
+      - pattern-either:
+          - pattern: import pandas
+          - pattern: import pandas as $X
+          - pattern: from pandas import ...

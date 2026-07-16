@@ -3,6 +3,7 @@
 *.test
 *.out
 /example
+/genmanifests
 
 # Rust
 /target/

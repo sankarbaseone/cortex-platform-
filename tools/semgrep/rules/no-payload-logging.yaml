@@ -1,0 +1,18 @@
+# CLAUDE.md NEVER rule: "log payload contents, egress raw IR". Heuristic,
+# key-name-based match over log/slog's variadic key-value call convention
+# (libs/go/nyxotel.NewLogger returns *slog.Logger) - not a data-flow taint
+# analysis, so it only catches the obvious case of passing one of these
+# keys straight into a log call. Add keys here as new ones surface in review.
+rules:
+  - id: go-no-payload-in-logs
+    languages: [go]
+    severity: ERROR
+    message: >
+      Do not log payload/raw-IR contents (CLAUDE.md NEVER list). Log an id,
+      size, or hash instead of the value itself.
+    patterns:
+      - pattern-either:
+          - pattern: $LOGGER.$METHOD(..., "payload", $VAL, ...)
+          - pattern: $LOGGER.$METHOD(..., "raw_ir", $VAL, ...)
+          - pattern: $LOGGER.$METHOD(..., "ir_bytes", $VAL, ...)
+          - pattern: $LOGGER.$METHOD(..., "body", $VAL, ...)

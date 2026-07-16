@@ -1,0 +1,33 @@
+# Enforces dependencies.yaml's `forbidden` list for TypeScript (redux,
+# axios-outside-api-client). RFC-010 K.1 fixes TanStack Query/Router as the
+# state/data-fetching stack; libs/ts/api-client is the one place allowed to
+# talk HTTP directly.
+rules:
+  - id: ts-no-redux
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >
+      redux/react-redux is on dependencies.yaml's forbidden list. RFC-010
+      K.1 fixes TanStack Query + component state as the state stack.
+    patterns:
+      - pattern-either:
+          - pattern: import $X from "redux"
+          - pattern: import $X from "react-redux"
+          - pattern: import $X from "@reduxjs/toolkit"
+          - pattern: require("redux")
+          - pattern: require("react-redux")
+
+  - id: ts-no-axios-outside-api-client
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >
+      axios is forbidden outside libs/ts/api-client (dependencies.yaml).
+      Use the generated api-client so every request goes through one typed,
+      interceptor-wired path.
+    paths:
+      exclude:
+        - "libs/ts/api-client/**"
+    patterns:
+      - pattern-either:
+          - pattern: import $X from "axios"
+          - pattern: require("axios")

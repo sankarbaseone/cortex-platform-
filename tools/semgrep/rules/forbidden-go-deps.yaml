@@ -1,0 +1,29 @@
+# Enforces dependencies.yaml's `forbidden` list for Go (gorm, wire, fx).
+# depguard.yaml governs intra-repo layering; this rule governs external
+# dependency choice, which depguard's import-linter does not check.
+rules:
+  - id: go-no-gorm
+    languages: [go]
+    severity: ERROR
+    message: >
+      gorm is on dependencies.yaml's forbidden list. Use libs/go/nyxpg (pgx)
+      for all Postgres/Timescale access.
+    patterns:
+      - pattern-either:
+          - pattern: import "github.com/jinzhu/gorm"
+          - pattern: import "gorm.io/gorm"
+          - pattern: import (... "github.com/jinzhu/gorm" ...)
+          - pattern: import (... "gorm.io/gorm" ...)
+
+  - id: go-no-wire-fx
+    languages: [go]
+    severity: ERROR
+    message: >
+      wire/fx are on dependencies.yaml's forbidden list. Construct
+      dependencies explicitly in cmd/<service>/main.go (ADR-0001).
+    patterns:
+      - pattern-either:
+          - pattern: import "github.com/google/wire"
+          - pattern: import "go.uber.org/fx"
+          - pattern: import (... "github.com/google/wire" ...)
+          - pattern: import (... "go.uber.org/fx" ...)
